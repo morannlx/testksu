@@ -328,8 +328,9 @@ fun installBoot(
         }
 
         is LkmSelection.KmiString -> {
-            val kmi = if (vivoPatch && !lkm.value.endsWith("-vivo")) {
-                "${lkm.value}-vivo"
+            // Use _vivo suffix for compatibility with sakisu-style KMI assets
+            val kmi = if (vivoPatch && !lkm.value.endsWith("_vivo")) {
+                "${lkm.value}_vivo"
             } else {
                 lkm.value
             }
@@ -345,11 +346,7 @@ fun installBoot(
     if (bootFile != null) {
         val downloadsDir =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val outName = if (vivoPatch) "kernelsu_patched_vivo_%Y%m%d_%H%M%S.img" else null
         cmd += " -o $downloadsDir"
-        if (outName != null) {
-            cmd += " --out-name $outName"
-        }
     }
 
     partition?.let { part ->

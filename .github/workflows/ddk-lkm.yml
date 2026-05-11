@@ -141,9 +141,9 @@ jobs:
         # Create output directory in GitHub workspace
         mkdir -p /github/workspace/out
 
-        # Copy with KMI-specific naming (use -vivo suffix for vivo builds, e.g. android14-6.1-vivo_kernelsu.ko)
+        # Copy with KMI-specific naming (append _vivo suffix for vivo builds, e.g. android14-6.1_vivo_kernelsu.ko)
         if [ "${{ inputs.vivo }}" = "true" ]; then
-          OUTPUT_NAME="${KMI_VIVO}_kernelsu.ko"
+          OUTPUT_NAME="${{ inputs.kmi }}_vivo_kernelsu.ko"
         else
           OUTPUT_NAME="${{ inputs.kmi }}_kernelsu.ko"
         fi
@@ -158,5 +158,5 @@ jobs:
     - name: Upload kernelsu.ko artifact
       uses: actions/upload-artifact@v7
       with:
-        name: ${{ inputs.kmi }}${{ inputs.vivo && '-vivo' || '' }}-lkm
-        path: /github/workspace/out/${{ inputs.kmi }}${{ inputs.vivo && '-vivo' || '' }}_kernelsu.ko
+        name: ${{ inputs.kmi }}${{ inputs.vivo && '_vivo-lkm' || '-lkm' }}
+        path: /github/workspace/out/${{ inputs.kmi }}${{ inputs.vivo && '_vivo' || '' }}_kernelsu.ko

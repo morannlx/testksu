@@ -857,14 +857,21 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             println!("- Set cmdline to: {cmdline_value}");
         }
 
+        // Determine the main ramdisk cpio path. For vendor_boot images,
+        // magiskboot creates BOTH an empty ramdisk.cpio AND the real vendor
+        // ramdisk at vendor_ramdisk/ramdisk.cpio. Always prefer the latter
+        // when it exists — otherwise the auto-detection and remove-vendor step
+        // operate on the wrong (empty) cpio.
         let mut ramdisk = workdir.join("ramdisk.cpio");
-        if !ramdisk.exists() {
-            ramdisk = workdir.join("vendor_ramdisk").join("init_boot.cpio");
-        }
-        if !ramdisk.exists() {
-            ramdisk = workdir.join("vendor_ramdisk").join("ramdisk.cpio");
-        }
-        if !ramdisk.exists() {
+        let vendor_ramdisk_cpio = workdir.join("vendor_ramdisk").join("ramdisk.cpio");
+        let vendor_init_boot_cpio = workdir.join("vendor_ramdisk").join("init_boot.cpio");
+        if vendor_ramdisk_cpio.exists() || vendor_init_boot_cpio.exists() {
+            if vendor_ramdisk_cpio.exists() {
+                ramdisk = vendor_ramdisk_cpio;
+            } else {
+                ramdisk = vendor_init_boot_cpio;
+            }
+        } else if !ramdisk.exists() {
             println!("- No ramdisk, create by default");
             ramdisk = "ramdisk.cpio".into();
         }
@@ -876,23 +883,34 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
         // through to normal injection. This makes vivo compat mode partition-
         // agnostic: users can feed either init_boot or vendor_boot and the
         // right thing happens.
-        if !no_install {
+        //
+        // Also check the alternate cpio location for vendor_ramdisk images
+        // where the main ramdisk.cpio differs from the vendor ramdisk.
+        let mut detected_vendor = false;
+        for check_path in [ramdisk, vendor_init_boot_cpio.as_path(), vendor_ramdisk_cpio.as_path()] {
+            if detected_vendor || no_install {
+                break;
+            }
+            if !check_path.exists() {
+                continue;
+            }
             if let Ok(output) = Command::new(&magiskboot)
                 .current_dir(workdir)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
                 .arg("cpio")
-                .arg(ramdisk)
+                .arg(check_path)
                 .arg("ls")
                 .output()
             {
                 let listing = String::from_utf8_lossy(&output.stdout);
-                let looks_like_vendor = listing
+                if listing
                     .lines()
-                    .any(|l| l.contains("lib/modules/") && l.ends_with(".ko"));
-                if looks_like_vendor {
+                    .any(|l| l.contains("lib/modules/") && l.ends_with(".ko"))
+                {
                     println!("- Auto-detected vendor_boot (lib/modules/*.ko present); skipping LKM injection");
                     no_install = true;
+                    detected_vendor = true;
                 }
             }
         }
