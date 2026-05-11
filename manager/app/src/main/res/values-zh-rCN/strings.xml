@@ -237,6 +237,8 @@
     <string name="allow_shell_summary">总是允许 adb shell 调用 su ，非必要请勿开启。</string>
     <string name="enable_adb">启动时强制启用 ADB 调试</string>
     <string name="enable_adb_summary">强制允许 USB 调试并取消 adb 认证，非必要请勿开启。</string>
+    <string name="vivo_patch">vivo/iQOO 兼容模式</string>
+    <string name="vivo_patch_summary">自动检测 init_boot 与 vendor_boot 镜像，并处理 vivo 特有内核模块 (vr.ko) 的移除。在 vivo/iQOO 设备上使用。</string>
     <string name="advanced_options">高级选项</string>
     <string name="expand">展开</string>
     <string name="download_channel_name">模块下载</string>

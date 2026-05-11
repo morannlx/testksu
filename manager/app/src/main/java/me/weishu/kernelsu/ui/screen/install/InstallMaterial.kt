@@ -186,6 +186,15 @@ internal fun InstallScreenMaterial(
                                 checked = uiState.enableAdb,
                                 onCheckedChange = actions.onSelectEnableAdb,
                             )
+                            // Vivo/iQOO compat toggle
+                            if (uiState.isVivoDevice || uiState.currentKmi.isNotEmpty()) {
+                                SegmentedCheckboxItem(
+                                    title = stringResource(id = R.string.vivo_patch),
+                                    summary = stringResource(id = R.string.vivo_patch_summary),
+                                    checked = uiState.vivoPatch,
+                                    onCheckedChange = actions.onSelectVivoPatch,
+                                )
+                            }
                         }
                     }
                 }

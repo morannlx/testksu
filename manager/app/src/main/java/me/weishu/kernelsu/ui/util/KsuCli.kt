@@ -273,6 +273,7 @@ fun installBoot(
     partition: String?,
     allowShell: Boolean,
     enableAdb: Boolean,
+    vivoPatch: Boolean = false,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
 ): FlashResult {
@@ -290,7 +291,8 @@ fun installBoot(
     }
 
     val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
-    var cmd = "boot-patch --magiskboot ${magiskboot.absolutePath}"
+    val subcommand = if (vivoPatch) "boot-patch-vivo" else "boot-patch"
+    var cmd = "$subcommand --magiskboot ${magiskboot.absolutePath}"
 
     cmd += if (bootFile == null) {
         // no boot.img, use -f to flash
@@ -326,7 +328,12 @@ fun installBoot(
         }
 
         is LkmSelection.KmiString -> {
-            cmd += " --kmi ${lkm.value}"
+            val kmi = if (vivoPatch && !lkm.value.endsWith("_vivo")) {
+                "${lkm.value}_vivo"
+            } else {
+                lkm.value
+            }
+            cmd += " --kmi $kmi"
         }
 
         LkmSelection.KmiNone -> {
@@ -338,7 +345,11 @@ fun installBoot(
     if (bootFile != null) {
         val downloadsDir =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val outName = if (vivoPatch) "kernelsu_patched_vivo_%Y%m%d_%H%M%S.img" else null
         cmd += " -o $downloadsDir"
+        if (outName != null) {
+            cmd += " --out-name $outName"
+        }
     }
 
     partition?.let { part ->

@@ -117,6 +117,10 @@ enum Commands {
     /// Patch boot or init_boot images to apply KernelSU
     BootPatch(BootPatchArgs),
 
+    /// Patch boot images for vivo/iQOO GKI devices (auto-detect init_boot vs vendor_boot)
+    #[cfg(target_os = "android")]
+    BootPatchVivo(BootPatchArgs),
+
     /// Restore boot or init_boot images patched by KernelSU
     BootRestore(BootRestoreArgs),
 
@@ -703,6 +707,9 @@ pub fn run() -> Result<()> {
         },
 
         Commands::BootPatch(boot_patch) => crate::boot_patch::patch(boot_patch),
+
+        #[cfg(target_os = "android")]
+        Commands::BootPatchVivo(boot_patch) => crate::boot_patch::patch_vivo(boot_patch),
 
         Commands::BootInfo { command } => match command {
             BootInfo::CurrentKmi => {

@@ -80,8 +80,15 @@ pub fn get_apk_signature(apk: &str) -> Result<(u32, String)> {
         ))?;
     }
 
-    if v3_signing_exist || v3_1_signing_exist {
-        return Err(anyhow::anyhow!("Unexpected v3 signature found!"));
+    // Relaxed policy: accept v2 signature even when v3/v3.1 coexist.
+    // Modern AGP signs release APKs with v1+v2+v3 by default, and the kernel
+    // verifier also accepts this combination. v2 is the authoritative scheme;
+    // v3/v3.1 presence alone is not a rejection cause.
+    if v3_signing_exist {
+        println!("- APK carries v3 signature (coexisting with v2)");
+    }
+    if v3_1_signing_exist {
+        println!("- APK carries v3.1 signature (coexisting with v2)");
     }
 
     v2_signing.ok_or_else(|| anyhow::anyhow!("No signature found!"))

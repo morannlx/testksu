@@ -120,7 +120,9 @@ FILLDIR_RETURN_TYPE my_actor(struct dir_context *ctx, const char *name, int name
         data->depth = my_ctx->depth - 1;
         list_add_tail(&data->list, my_ctx->data_path_list);
     } else {
-        if ((namelen == 8) && (strncmp(name, "base.apk", namelen) == 0)) {
+        // Exact-length match: prevent base.apk.prof / base.apk.idsig siblings from
+        // being mistaken for the real APK (vivo drops these next to base.apk).
+        if (d_type == DT_REG && namelen == 8 && !memcmp(name, "base.apk", 8)) {
             struct apk_path_hash *pos, *n;
             unsigned int hash = full_name_hash(NULL, dirpath, strlen(dirpath));
             list_for_each_entry (pos, &apk_path_hash_list, list) {
@@ -277,24 +279,17 @@ void track_throne(bool prune_only)
             goto out;
         }
 
-        char *tmp = buf;
-        const char *delim = " ";
-        char *package = strsep(&tmp, delim);
-        char *uid = strsep(&tmp, delim);
-        if (!uid || !package) {
-            kfree(data);
-            pr_err("update_uid: package or uid is NULL!\n");
-            break;
-        }
-
+        // Use sscanf for robust whitespace handling (spaces, tabs, multiple
+        // consecutive whitespace). strsep treats each delimiter char individually
+        // and returns empty tokens on consecutive spaces, breaking vivo's
+        // packages.list format which uses variable whitespace.
         u32 res;
-        if (kstrtou32(uid, 10, &res)) {
+        if (sscanf(buf, "%255s %u", data->package, &res) != 2) {
             kfree(data);
-            pr_err("update_uid: uid parse err\n");
-            break;
+            line_start = pos;
+            continue;
         }
         data->uid = res;
-        strncpy(data->package, package, KSU_MAX_PACKAGE_NAME);
         list_add_tail(&data->list, &uid_list);
         // reset line start
         line_start = pos;

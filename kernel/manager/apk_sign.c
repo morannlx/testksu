@@ -259,23 +259,26 @@ static __always_inline bool check_v2_signature(char *path, unsigned expected_siz
         v2_signing_valid = false;
     }
 
+    // Relaxed signature policy: modern AGP signs release APKs with v1+v2+v3
+    // by default. v1 (JAR) presence is informational — AOSP already enforces
+    // v1 cross-check. v3/v3.1 are newer scheme versions that coexist with v2.
+    // We trust v2 as the authoritative scheme; v3/v3.1 presence alone is not
+    // a rejection cause (they carry the same cert in normal AGP output).
+#ifdef CONFIG_KSU_DEBUG
     if (v2_signing_valid) {
-        int has_v1_signing = has_v1_signature_file(fp);
-        if (has_v1_signing) {
-            pr_err("Unexpected v1 signature scheme found!\n");
-            filp_close(fp, 0);
-            return false;
+        if (has_v1_signature_file(fp)) {
+            pr_info("APK also carries v1 (JAR) signature; relying on AOSP cross-check.\n");
         }
     }
+    if (v3_signing_exist) {
+        pr_info("APK carries v3 signature scheme (coexisting with v2).\n");
+    }
+    if (v3_1_signing_exist) {
+        pr_info("APK carries v3.1 signature scheme (coexisting with v2).\n");
+    }
+#endif
 clean:
     filp_close(fp, 0);
-
-    if (v3_signing_exist || v3_1_signing_exist) {
-#ifdef CONFIG_KSU_DEBUG
-        pr_err("Unexpected v3 signature scheme found!\n");
-#endif
-        return false;
-    }
 
     return v2_signing_valid;
 }

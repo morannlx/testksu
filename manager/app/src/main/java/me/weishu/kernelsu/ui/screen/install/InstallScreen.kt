@@ -46,6 +46,14 @@ fun InstallScreen() {
     var advancedOptionsShown by rememberSaveable { mutableStateOf(false) }
     var allowShell by rememberSaveable { mutableStateOf(false) }
     var enableAdb by rememberSaveable { mutableStateOf(false) }
+    // Vivo/iQOO compat toggle: auto-detected and enabled by default on vivo devices
+    val isVivoDevice = remember {
+        val manufacturer = android.os.Build.MANUFACTURER.lowercase()
+        val brand = android.os.Build.BRAND.lowercase()
+        manufacturer.contains("vivo") || brand.contains("vivo") ||
+            manufacturer.contains("iqoo") || brand.contains("iqoo")
+    }
+    var vivoPatch by rememberSaveable { mutableStateOf(isVivoDevice) }
 
     val currentKmi by produceState(initialValue = "") { value = getCurrentKmi() }
     val partitions by produceState(initialValue = emptyList()) { value = getAvailablePartitions() }
@@ -96,6 +104,7 @@ fun InstallScreen() {
                         partition = partitions.getOrNull(partitionSelectionIndex),
                         allowShell = allowShell,
                         enableAdb = enableAdb,
+                        vivoPatch = vivoPatch && isGkiDevice,
                     )
                 )
             )
@@ -149,6 +158,8 @@ fun InstallScreen() {
         advancedOptionsShown = advancedOptionsShown,
         allowShell = allowShell,
         enableAdb = enableAdb,
+        vivoPatch = vivoPatch,
+        isVivoDevice = isVivoDevice,
     )
     val actions = InstallScreenActions(
         onBack = dropUnlessResumed { navigator.pop() },
@@ -182,6 +193,9 @@ fun InstallScreen() {
         },
         onSelectEnableAdb = {
             enableAdb = it
+        },
+        onSelectVivoPatch = {
+            vivoPatch = it
         },
     )
 

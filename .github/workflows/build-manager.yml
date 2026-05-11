@@ -75,7 +75,8 @@ jobs:
 
           # Calculate size in hex
           SIZE_DEC=$(stat -c%s pr-cert.der)
-          SIZE_HEX=$(printf '0x%04x' "$SIZE_DEC")
+          # Use %x (not %04x) to match Rust's {:#x} output format
+          SIZE_HEX=$(printf '0x%x' "$SIZE_DEC")
           echo "expected_size=$SIZE_HEX" >> $GITHUB_OUTPUT
 
           # Calculate SHA256 hash
@@ -93,11 +94,19 @@ jobs:
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
     secrets: inherit
 
+  build-lkm-vivo:
+    needs: generate-key
+    uses: ./.github/workflows/build-lkm-vivo.yml
+    with:
+      expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
+      expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
+    secrets: inherit
+
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
 
   build-ksud:
-    needs: [build-lkm, build-ksuinit]
+    needs: [build-lkm, build-lkm-vivo, build-ksuinit]
     strategy:
       matrix:
         include:
@@ -108,9 +117,9 @@ jobs:
       target: ${{ matrix.target }}
       pack_lkm: true
       pack_ksuinit: true
-  
+
   build-ksud-extra:
-    needs: [build-lkm, build-ksuinit]
+    needs: [build-lkm, build-lkm-vivo, build-ksuinit]
     strategy:
       matrix:
         include:

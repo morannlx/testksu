@@ -526,6 +526,215 @@ pub struct BootPatchArgs {
     /// Do not (re-)install kernelsu, only modify configs (allow_shell, etc.)
     #[arg(long, default_value = "false")]
     no_install: bool,
+
+    /// Remove vendor ramdisk modules by name (repeatable), and clean references
+    /// from modules.load/modules.dep/modules.softdep/modules.load.recovery.
+    #[arg(long = "remove-module", value_name = "NAME.ko", num_args = 0..)]
+    pub remove_module: Vec<String>,
+}
+
+fn normalize_module_name(name: &str) -> String {
+    let trimmed = name.trim().trim_matches('/');
+    trimmed.rsplit('/').next().unwrap_or(trimmed).to_string()
+}
+
+/// Remove references to a module from a cpio index file (modules.load, modules.dep, etc.)
+fn remove_module_from_index(
+    magiskboot: &Path,
+    workdir: &Path,
+    cpio_path: &Path,
+    index_path: &str,
+    module_name: &str,
+) -> Result<()> {
+    let status = Command::new(magiskboot)
+        .current_dir(workdir)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .arg("cpio")
+        .arg(cpio_path)
+        .arg("exists")
+        .arg(index_path)
+        .status()?;
+
+    if !status.success() {
+        return Ok(());
+    }
+
+    // Extract the index file to workdir
+    do_cpio_cmd(
+        magiskboot,
+        workdir,
+        cpio_path,
+        &format!("extract {index_path} {index_path}"),
+    )?;
+
+    let index_file = workdir.join(index_path);
+    let text = std::fs::read_to_string(&index_file)
+        .with_context(|| format!("read {index_path}"))?;
+
+    let module_stem = module_name.trim_end_matches(".ko");
+    let mut changed = false;
+    let mut kept: Vec<String> = Vec::new();
+
+    for line in text.lines() {
+        let l = line.trim();
+        if l.is_empty() {
+            continue;
+        }
+
+        let refs_by_path = l.contains(module_name)
+            || l.contains(&format!("/{module_name}"));
+        let refs_by_stem = l.contains(&format!(" {module_stem} "))
+            || l.ends_with(&format!(" {module_stem}"))
+            || l.starts_with(&format!("{module_stem} "))
+            || l.starts_with(&format!("softdep {module_stem} "));
+
+        if refs_by_path || refs_by_stem {
+            changed = true;
+            continue;
+        }
+
+        kept.push(line.to_string());
+    }
+
+    if !changed {
+        return Ok(());
+    }
+
+    println!("- Cleaning reference in {index_path} for {module_name}");
+
+    let mut rebuilt = kept.join("\n");
+    if !rebuilt.is_empty() {
+        rebuilt.push('\n');
+    }
+
+    std::fs::write(&index_file, rebuilt)?;
+
+    // Remove old entry and re-add modified file
+    do_cpio_cmd(magiskboot, workdir, cpio_path, &format!("rm {index_path}"))?;
+    do_cpio_cmd(
+        magiskboot,
+        workdir,
+        cpio_path,
+        &format!("add 0644 {index_path} {index_path}"),
+    )?;
+    Ok(())
+}
+
+/// Discover all lib/modules/<ver>-gki directories by listing cpio content,
+/// remove the named modules, and clean their references from index files.
+/// Uses magiskboot cpio ls to dynamically find GKI version subdirectories
+/// (handles 5.10/5.15/6.1/6.6/6.12, not just a hardcoded 6.1-gki).
+fn remove_vendor_modules(
+    magiskboot: &Path,
+    workdir: &Path,
+    cpio_path: &Path,
+    remove_module: &[String],
+) -> Result<()> {
+    if remove_module.is_empty() {
+        return Ok(());
+    }
+
+    // Use magiskboot cpio ls to discover module roots
+    let output = Command::new(magiskboot)
+        .current_dir(workdir)
+        .arg("cpio")
+        .arg(cpio_path)
+        .arg("ls")
+        .output()
+        .context("magiskboot cpio ls failed")?;
+
+    let listing = String::from_utf8_lossy(&output.stdout);
+    let mut module_roots: Vec<String> = vec!["lib/modules".to_string()];
+
+    for line in listing.lines() {
+        let line = line.trim();
+        // magiskboot cpio ls output format varies; look for paths containing lib/modules/<ver>-gki
+        if let Some(pos) = line.find("lib/modules/") {
+            let rest = &line[pos + "lib/modules/".len()..];
+            let head = match rest.find('/') {
+                Some(idx) => &rest[..idx],
+                None => rest,
+            };
+            if head.ends_with("-gki") {
+                let candidate = format!("lib/modules/{head}");
+                if !module_roots.iter().any(|r| r == &candidate) {
+                    println!("- Detected vendor module root: {candidate}");
+                    module_roots.push(candidate);
+                }
+            }
+        }
+    }
+
+    let index_files = [
+        "modules.load",
+        "modules.dep",
+        "modules.softdep",
+        "modules.load.recovery",
+    ];
+
+    for raw_name in remove_module {
+        let module_name = normalize_module_name(raw_name);
+        if module_name.is_empty() {
+            continue;
+        }
+
+        for root in &module_roots {
+            let module_path = format!("{root}/{module_name}");
+            // Remove the .ko file if present
+            let status = Command::new(magiskboot)
+                .current_dir(workdir)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .arg("cpio")
+                .arg(cpio_path)
+                .arg("exists")
+                .arg(&module_path)
+                .status();
+
+            if status.is_ok() && status.unwrap().success() {
+                println!("- Removing vendor module {module_path}");
+                do_cpio_cmd(
+                    magiskboot,
+                    workdir,
+                    cpio_path,
+                    &format!("rm {module_path}"),
+                )?;
+            }
+
+            // Clean references in index files
+            for idx in index_files {
+                let idx_path = format!("{root}/{idx}");
+                remove_module_from_index(
+                    magiskboot,
+                    workdir,
+                    cpio_path,
+                    &idx_path,
+                    &module_name,
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Vivo compat mode: auto-detect init_boot vs vendor_boot and dispatch accordingly.
+/// - init_boot.img → normal LKM injection (vr.ko is absent so removal is no-op)
+/// - vendor_boot.img → auto no_install + vr.ko removal from modules.load*
+pub fn patch_vivo(args: BootPatchArgs) -> Result<()> {
+    println!("- Mode: vivo compat (auto-detect init_boot vs vendor_boot)");
+
+    let mut args = args;
+    if !args
+        .remove_module
+        .iter()
+        .any(|x| normalize_module_name(x) == "vr.ko")
+    {
+        args.remove_module.push("vr.ko".to_string());
+    }
+
+    patch(args)
 }
 
 pub fn patch(args: BootPatchArgs) -> Result<()> {
@@ -543,7 +752,8 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             allow_shell,
             enable_adbd,
             adb_debug_prop,
-            no_install,
+            mut no_install,
+            remove_module,
             #[cfg(target_os = "android")]
             ota,
             #[cfg(target_os = "android")]
@@ -630,26 +840,6 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             std::fs::copy(kernel, workdir.join("kernel")).context("copy kernel from failed")?;
         }
 
-        println!("- Preparing assets");
-
-        let kmod_file = workdir.join("kernelsu.ko");
-        if let Some(kmod) = kmod {
-            std::fs::copy(kmod, kmod_file).context("copy kernel module failed")?;
-        } else if !no_install {
-            // If kmod is not specified, extract from assets
-            println!("- KMI: {kmi}");
-            let name = format!("{kmi}_kernelsu.ko");
-            assets::copy_assets_to_file(&name, kmod_file)
-                .with_context(|| format!("Failed to copy {name}"))?;
-        }
-
-        let init_file = workdir.join("init");
-        if let Some(init) = init {
-            std::fs::copy(init, init_file).context("copy init failed")?;
-        } else if !no_install {
-            assets::copy_assets_to_file("ksuinit", init_file).context("copy ksuinit failed")?;
-        }
-
         println!("- Unpacking boot image");
         let status = Command::new(&magiskboot)
             .current_dir(workdir)
@@ -679,6 +869,53 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             ramdisk = "ramdisk.cpio".into();
         }
         let ramdisk = ramdisk.as_path();
+
+        // Vendor_boot auto-detection: if the ramdisk contains kernel modules
+        // under lib/modules/, treat this as vendor_boot and skip LKM injection.
+        // Standard init_boot/boot images don't have lib/modules/, so they fall
+        // through to normal injection. This makes vivo compat mode partition-
+        // agnostic: users can feed either init_boot or vendor_boot and the
+        // right thing happens.
+        if !no_install {
+            if let Ok(output) = Command::new(&magiskboot)
+                .current_dir(workdir)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .arg("cpio")
+                .arg(ramdisk)
+                .arg("ls")
+                .output()
+            {
+                let listing = String::from_utf8_lossy(&output.stdout);
+                let looks_like_vendor = listing
+                    .lines()
+                    .any(|l| l.contains("lib/modules/") && l.ends_with(".ko"));
+                if looks_like_vendor {
+                    println!("- Auto-detected vendor_boot (lib/modules/*.ko present); skipping LKM injection");
+                    no_install = true;
+                }
+            }
+        }
+
+        // Load LKM resources AFTER auto-detection to avoid pulling kernelsu.ko
+        // and ksuinit (~3 MB) from assets just to discard them on vendor_boot.
+        let kmod_file = workdir.join("kernelsu.ko");
+        if let Some(kmod) = kmod {
+            std::fs::copy(kmod, &kmod_file).context("copy kernel module failed")?;
+        } else if !no_install {
+            println!("- KMI: {kmi}");
+            let name = format!("{kmi}_kernelsu.ko");
+            assets::copy_assets_to_file(&name, &kmod_file)
+                .with_context(|| format!("Failed to copy {name}"))?;
+        }
+
+        let init_file = workdir.join("init");
+        if let Some(init) = init {
+            std::fs::copy(init, &init_file).context("copy init failed")?;
+        } else if !no_install {
+            assets::copy_assets_to_file("ksuinit", &init_file).context("copy ksuinit failed")?;
+        }
+
         if !no_install {
             let is_magisk_patched = is_magisk_patched(&magiskboot, workdir, ramdisk)?;
             ensure!(!is_magisk_patched, "Cannot work with Magisk patched image");
@@ -709,6 +946,8 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             {
                 println!("- Backup stock image failed: {e}");
             }
+        } else {
+            println!("- Skipping KernelSU LKM injection (no_install)");
         }
 
         if allow_shell {
@@ -772,6 +1011,9 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
                 do_cpio_cmd(&magiskboot, workdir, ramdisk, "rm adb_debug.prop").ok();
             }
         }
+
+        // Remove vendor modules (vr.ko on vivo devices) and clean index references
+        remove_vendor_modules(&magiskboot, workdir, ramdisk, &remove_module)?;
 
         println!("- Repacking boot image");
         // magiskboot repack boot.img

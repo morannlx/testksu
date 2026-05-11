@@ -41,5 +41,6 @@ jobs:
           files: |
             manager/*.apk
             android*-lkm/*_kernelsu.ko
+            android*-lkm-vivo/*_vivo_kernelsu.ko
             ksud/ksud-*
             ksuinit/**

@@ -1,0 +1,42 @@
+name: Build LKM for KernelSU (vivo)
+
+# Builds vivo-vermagic-injected variants of kernelsu.ko for all KMIs.
+# vivo/iQOO GKI kernels enforce a "vivo" token in vermagic, so every KMI
+# in the matrix needs a vivo build. ddk-lkm.yml has device-tested strings
+# for 5.10 / 6.1 and a generic template fallback for others.
+
+on:
+  workflow_call:
+    inputs:
+      expected_size2:
+        description: 'Second expected signature size (for PR builds)'
+        required: false
+        default: ''
+        type: string
+      expected_hash2:
+        description: 'Second expected signature hash (for PR builds)'
+        required: false
+        default: ''
+        type: string
+  workflow_dispatch:
+
+jobs:
+  build-lkm-vivo:
+    strategy:
+      fail-fast: false
+      matrix:
+        kmi:
+          - android12-5.10
+          - android13-5.10
+          - android13-5.15
+          - android14-5.15
+          - android14-6.1
+          - android15-6.6
+          - android16-6.12
+    uses: ./.github/workflows/ddk-lkm.yml
+    with:
+      kmi: ${{ matrix.kmi }}
+      ddk_release: '20260313'
+      vivo: true
+      expected_size2: ${{ inputs.expected_size2 || '' }}
+      expected_hash2: ${{ inputs.expected_hash2 || '' }}

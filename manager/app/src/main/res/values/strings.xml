@@ -262,6 +262,8 @@
     <string name="allow_shell_summary">Always allow adb shell to call su. Do not enable this unless absolutely necessary.</string>
     <string name="enable_adb">Force enable adb on boot</string>
     <string name="enable_adb_summary">Force enable USB debugging and disable adb authentication. Do not enable this unless absolutely necessary.</string>
+    <string name="vivo_patch">Vivo/iQOO compat mode</string>
+    <string name="vivo_patch_summary">Auto-detect init_boot vs vendor_boot images and handle vivo-specific kernel module (vr.ko) removal. Enable on vivo/iQOO devices.</string>
     <string name="advanced_options">Advanced Options</string>
     <string name="expand">Expand</string>
     <string name="download_channel_name">Module Downloads</string>

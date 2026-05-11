@@ -227,6 +227,15 @@ internal fun InstallScreenMiuix(
                                     summary = stringResource(id = R.string.enable_adb_summary),
                                     onCheckedChange = actions.onSelectEnableAdb
                                 )
+                                // Vivo/iQOO compat toggle: shown when vivo device detected or GKI
+                                if (uiState.isVivoDevice || uiState.currentKmi.isNotEmpty()) {
+                                    CheckboxPreference(
+                                        title = stringResource(id = R.string.vivo_patch),
+                                        checked = uiState.vivoPatch,
+                                        summary = stringResource(id = R.string.vivo_patch_summary),
+                                        onCheckedChange = actions.onSelectVivoPatch
+                                    )
+                                }
                             }
                         }
                     }
