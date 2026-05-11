@@ -28,8 +28,8 @@ jobs:
       if: ${{ inputs.pack_lkm }}
       run: |
         cp android*-lkm/*_kernelsu.ko ./userspace/ksud/bin/aarch64/
-        # Include vivo vermagic LKM variants if present
-        find . -path "*/android*-lkm-vivo/*_vivo_kernelsu.ko" -exec cp {} ./userspace/ksud/bin/aarch64/ \; 2>/dev/null || true
+        # Include vivo vermagic LKM variants (androidXX-Y.Z-vivo_kernelsu.ko)
+        find . -path "*/android*-vivo-lkm/*-vivo_kernelsu.ko" -exec cp {} ./userspace/ksud/bin/aarch64/ \; 2>/dev/null || true
     
     - name: Prepare ksuinit
       if: ${{ inputs.pack_ksuinit }}

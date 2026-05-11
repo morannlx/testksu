@@ -48,7 +48,9 @@ jobs:
         ANDROID_VER=$(echo "$KMI" | cut -d- -f1 | sed 's/android//')
         KERNEL_VER=$(echo "$KMI" | cut -d- -f2)
 
-        echo ">>> Injecting vivo vermagic for KMI=$KMI (android=$ANDROID_VER, kernel=$KERNEL_VER)"
+        # Build identifier: e.g. android14-6.1-vivo
+        KMI_VIVO="${KMI}-vivo"
+        echo ">>> Injecting vivo vermagic for ${KMI_VIVO} (android=${ANDROID_VER}, kernel=${KERNEL_VER})"
 
         case "$KMI" in
           android12-5.10|android13-5.10)
@@ -62,7 +64,7 @@ jobs:
           *)
             UTS_STRING="${KERNEL_VER}.0-android${ANDROID_VER}-0-maybe-dirty"
             PATCH_UTS="true"
-            echo "WARNING: KMI=$KMI uses generic vivo vermagic template: $UTS_STRING"
+            echo "WARNING: KMI=${KMI_VIVO} uses generic vivo vermagic template: $UTS_STRING"
             echo "If module loading fails with vermagic mismatch, update this mapping."
             ;;
         esac
@@ -72,37 +74,42 @@ jobs:
         echo "Target vermagic: $VMAGIC_STRING"
         echo "Patch utsrelease: $PATCH_UTS"
 
-        # Patch vermagic.h in the DDK kernel headers
-        VERMAGIC_H=$(find /usr/src -name "vermagic.h" -path "*/generated/*" 2>/dev/null | head -1)
+        # Patch vermagic.h in the DDK kernel headers.
+        # Use subshell + || true to prevent find from killing the script under
+        # set -e when encountering permission errors in container environments.
+        VERMAGIC_H=$(find /usr/src -name "vermagic.h" -path "*/generated/*" 2>/dev/null | head -1) || true
         if [ -z "$VERMAGIC_H" ]; then
-          VERMAGIC_H=$(find / -name "vermagic.h" 2>/dev/null | head -1)
+          VERMAGIC_H=$(find / -name "vermagic.h" 2>/dev/null | head -1) || true
         fi
 
         if [ -n "$VERMAGIC_H" ] && [ -f "$VERMAGIC_H" ]; then
           echo "Found vermagic.h: $VERMAGIC_H"
-          sed -i "/#define VERMAGIC_STRING/c\#define VERMAGIC_STRING \"$VMAGIC_STRING\"" "$VERMAGIC_H"
+          sed -i "/#define VERMAGIC_STRING/c\#define VERMAGIC_STRING \"$VMAGIC_STRING\"" "$VERMAGIC_H" || true
           grep "VERMAGIC_STRING" "$VERMAGIC_H" || true
         else
           echo "WARNING: vermagic.h not found, adding -D override to ccflags"
-          echo 'ccflags-y += -DVERMAGIC_STRING="'"$VMAGIC_STRING"'"' >> kernel/Kbuild
+          echo "ccflags-y += -DVERMAGIC_STRING=\"${VMAGIC_STRING}\"" >> kernel/Kbuild
         fi
 
         # Patch utsrelease.h if needed for vivo kernel version matching
         if [ "$PATCH_UTS" = "true" ]; then
-          UTS_H=$(find /usr/src -name "utsrelease.h" -path "*/generated/*" 2>/dev/null | head -1)
+          UTS_H=$(find /usr/src -name "utsrelease.h" -path "*/generated/*" 2>/dev/null | head -1) || true
           if [ -z "$UTS_H" ]; then
-            UTS_H=$(find / -name "utsrelease.h" 2>/dev/null | head -1)
+            UTS_H=$(find / -name "utsrelease.h" 2>/dev/null | head -1) || true
           fi
           if [ -n "$UTS_H" ] && [ -f "$UTS_H" ]; then
             echo "Found utsrelease.h: $UTS_H"
-            sed -i "s/UTS_RELEASE \"\([^\"]*\)\"/UTS_RELEASE \"$UTS_STRING\"/" "$UTS_H"
+            sed -i "s/UTS_RELEASE \"\([^\"]*\)\"/UTS_RELEASE \"${UTS_STRING}\"/" "$UTS_H" || true
             grep "UTS_RELEASE" "$UTS_H" || true
           else
-            echo "WARNING: utsrelease.h not found"
+            echo "WARNING: utsrelease.h not found, adding -D override to ccflags"
+            echo "ccflags-y += -DUTS_RELEASE=\"${UTS_STRING}\"" >> kernel/Kbuild
           fi
         fi
 
-        echo ">>> Vivo vermagic injection complete"
+        # Export KMI_VIVO for downstream build/artifact steps
+        echo "KMI_VIVO=${KMI_VIVO}" >> $GITHUB_ENV
+        echo ">>> Vivo vermagic injection complete for ${KMI_VIVO}"
 
     - name: Build kernelsu.ko
       env:
@@ -134,9 +141,9 @@ jobs:
         # Create output directory in GitHub workspace
         mkdir -p /github/workspace/out
 
-        # Copy with KMI-specific naming (append _vivo suffix for vivo builds)
+        # Copy with KMI-specific naming (use -vivo suffix for vivo builds, e.g. android14-6.1-vivo_kernelsu.ko)
         if [ "${{ inputs.vivo }}" = "true" ]; then
-          OUTPUT_NAME="${{ inputs.kmi }}_vivo_kernelsu.ko"
+          OUTPUT_NAME="${KMI_VIVO}_kernelsu.ko"
         else
           OUTPUT_NAME="${{ inputs.kmi }}_kernelsu.ko"
         fi
@@ -151,5 +158,5 @@ jobs:
     - name: Upload kernelsu.ko artifact
       uses: actions/upload-artifact@v7
       with:
-        name: ${{ inputs.kmi }}-lkm${{ inputs.vivo && '-vivo' || '' }}
-        path: /github/workspace/out/${{ inputs.kmi }}${{ inputs.vivo && '_vivo' || '' }}_kernelsu.ko
+        name: ${{ inputs.kmi }}${{ inputs.vivo && '-vivo' || '' }}-lkm
+        path: /github/workspace/out/${{ inputs.kmi }}${{ inputs.vivo && '-vivo' || '' }}_kernelsu.ko

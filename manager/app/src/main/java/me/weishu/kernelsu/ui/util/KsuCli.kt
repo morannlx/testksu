@@ -328,8 +328,8 @@ fun installBoot(
         }
 
         is LkmSelection.KmiString -> {
-            val kmi = if (vivoPatch && !lkm.value.endsWith("_vivo")) {
-                "${lkm.value}_vivo"
+            val kmi = if (vivoPatch && !lkm.value.endsWith("-vivo")) {
+                "${lkm.value}-vivo"
             } else {
                 lkm.value
             }
