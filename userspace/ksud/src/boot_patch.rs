@@ -404,13 +404,13 @@ fn find_magiskboot(magiskboot_path: Option<PathBuf>, workdir: &Path) -> Result<P
 
 fn find_boot_image(
     image: &Option<PathBuf>,
-    kmi: &str,
-    ota: bool,
-    is_replace_kernel: bool,
-    workdir: &Path,
-    partition: &Option<String>,
+    #[allow(unused_variables)] kmi: &str,
+    #[allow(unused_variables)] ota: bool,
+    #[allow(unused_variables)] is_replace_kernel: bool,
+    #[allow(unused_variables)] workdir: &Path,
+    #[allow(unused_variables)] partition: &Option<String>,
 ) -> Result<(PathBuf, Option<String>)> {
-    let bootimage;
+    #[allow(unused_mut)]
     let mut bootdevice = None;
     if let Some(ref image) = *image {
         ensure!(image.exists(), "boot image not found");
