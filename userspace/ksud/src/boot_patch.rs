@@ -860,11 +860,46 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
         // Determine the main ramdisk cpio path. For vendor_boot images,
         // magiskboot creates BOTH an empty ramdisk.cpio AND the real vendor
         // ramdisk at vendor_ramdisk/ramdisk.cpio. Always prefer the latter
-        // when it exists — otherwise the auto-detection and remove-vendor step
-        // operate on the wrong (empty) cpio.
+        // when it exists.
         let mut ramdisk = workdir.join("ramdisk.cpio");
         let vendor_ramdisk_cpio = workdir.join("vendor_ramdisk").join("ramdisk.cpio");
         let vendor_init_boot_cpio = workdir.join("vendor_ramdisk").join("init_boot.cpio");
+
+        // Auto-detection MUST run before the PathBufs are moved into `ramdisk`,
+        // otherwise the later borrow in the [check_path] array fails with E0382.
+        let mut detected_vendor = false;
+        if !no_install {
+            for check_path in [vendor_ramdisk_cpio.as_path(), vendor_init_boot_cpio.as_path()] {
+                if detected_vendor {
+                    break;
+                }
+                if !check_path.exists() {
+                    continue;
+                }
+                if let Ok(output) = Command::new(&magiskboot)
+                    .current_dir(workdir)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::null())
+                    .arg("cpio")
+                    .arg(check_path)
+                    .arg("ls")
+                    .output()
+                {
+                    let listing = String::from_utf8_lossy(&output.stdout);
+                    if listing
+                        .lines()
+                        .any(|l| l.contains("lib/modules/") && l.endsWith(".ko"))
+                    {
+                        println!("- Auto-detected vendor_boot (lib/modules/*.ko present); skipping LKM injection");
+                        no_install = true;
+                        detected_vendor = true;
+                    }
+                }
+            }
+        }
+
+        // Now select the main ramdisk. The PathBufs above are no longer borrowed,
+        // so they can be safely moved into `ramdisk`.
         if vendor_ramdisk_cpio.exists() || vendor_init_boot_cpio.exists() {
             if vendor_ramdisk_cpio.exists() {
                 ramdisk = vendor_ramdisk_cpio;
@@ -877,43 +912,6 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
         }
         let ramdisk = ramdisk.as_path();
 
-        // Vendor_boot auto-detection: if the ramdisk contains kernel modules
-        // under lib/modules/, treat this as vendor_boot and skip LKM injection.
-        // Standard init_boot/boot images don't have lib/modules/, so they fall
-        // through to normal injection. This makes vivo compat mode partition-
-        // agnostic: users can feed either init_boot or vendor_boot and the
-        // right thing happens.
-        //
-        // Also check the alternate cpio location for vendor_ramdisk images
-        // where the main ramdisk.cpio differs from the vendor ramdisk.
-        let mut detected_vendor = false;
-        for check_path in [ramdisk, vendor_init_boot_cpio.as_path(), vendor_ramdisk_cpio.as_path()] {
-            if detected_vendor || no_install {
-                break;
-            }
-            if !check_path.exists() {
-                continue;
-            }
-            if let Ok(output) = Command::new(&magiskboot)
-                .current_dir(workdir)
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .arg("cpio")
-                .arg(check_path)
-                .arg("ls")
-                .output()
-            {
-                let listing = String::from_utf8_lossy(&output.stdout);
-                if listing
-                    .lines()
-                    .any(|l| l.contains("lib/modules/") && l.ends_with(".ko"))
-                {
-                    println!("- Auto-detected vendor_boot (lib/modules/*.ko present); skipping LKM injection");
-                    no_install = true;
-                    detected_vendor = true;
-                }
-            }
-        }
 
         // Load LKM resources AFTER auto-detection to avoid pulling kernelsu.ko
         // and ksuinit (~3 MB) from assets just to discard them on vendor_boot.
