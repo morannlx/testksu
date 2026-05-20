@@ -29,6 +29,11 @@ on:
         required: false
         default: ''
         type: string
+      ksu_version:
+        description: 'Pre-computed KSU_VERSION to ensure consistency across builds'
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
 
 jobs:
@@ -53,3 +58,4 @@ jobs:
       expected_hash2: ${{ inputs.expected_hash2 || '' }}
       expected_size: ${{ inputs.expected_size || '' }}
       expected_hash: ${{ inputs.expected_hash || '' }}
+      ksu_version: ${{ inputs.ksu_version || '' }}

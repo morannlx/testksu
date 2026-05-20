@@ -37,6 +37,11 @@ on:
         required: false
         default: false
         type: boolean
+      ksu_version:
+        description: 'Pre-computed KSU_VERSION (30000 + git_count). If empty, computed from git.'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   build-kernelsu-ko:
@@ -112,6 +117,7 @@ jobs:
         EXPECTED_HASH2: ${{ inputs.expected_hash2 }}
         EXPECTED_SIZE: ${{ inputs.expected_size }}
         EXPECTED_HASH: ${{ inputs.expected_hash }}
+        KSU_VERSION_INPUT: ${{ inputs.ksu_version }}
       run: |
         git config --global --add safe.directory /__w/KernelSU/KernelSU
 
@@ -121,16 +127,21 @@ jobs:
 
         EXTRA_ARGS=""
 
-        # Calculate KSU_VERSION from git commit count to avoid DDK container
-        # git detection fallback (which hardcodes KSU_VERSION=16).
-        # KSU_VERSION formula: 30000 + git_commit_count
-        KSU_GIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "")
-        if [ -n "$KSU_GIT_COUNT" ]; then
-          KSU_VER=$((30000 + KSU_GIT_COUNT))
-          echo "Calculated KSU_VERSION: $KSU_VER (git commits: $KSU_GIT_COUNT)"
-          EXTRA_ARGS="$EXTRA_ARGS KSU_VERSION=$KSU_VER"
+        # Use pre-computed KSU_VERSION if provided, otherwise compute from git.
+        # The pre-computed value ensures kernel, manager, and ksud all share
+        # the same version number regardless of DDK container git availability.
+        if [ -n "$KSU_VERSION_INPUT" ]; then
+          echo "Using pre-computed KSU_VERSION: $KSU_VERSION_INPUT"
+          EXTRA_ARGS="$EXTRA_ARGS KSU_VERSION=$KSU_VERSION_INPUT"
         else
-          echo "WARNING: Could not determine git commit count, Kbuild will use fallback"
+          KSU_GIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "")
+          if [ -n "$KSU_GIT_COUNT" ]; then
+            KSU_VER=$((30000 + KSU_GIT_COUNT))
+            echo "Calculated KSU_VERSION: $KSU_VER (git commits: $KSU_GIT_COUNT)"
+            EXTRA_ARGS="$EXTRA_ARGS KSU_VERSION=$KSU_VER"
+          else
+            echo "WARNING: Could not determine git commit count, Kbuild will use fallback"
+          fi
         fi
 
         # Primary certificate override (custom manager builds)
