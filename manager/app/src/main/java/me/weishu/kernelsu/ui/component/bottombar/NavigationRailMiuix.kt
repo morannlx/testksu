@@ -22,8 +22,8 @@ fun NavigationRailMiuix(
     blurBackdrop: LayerBackdrop?,
     modifier: Modifier = Modifier,
 ) {
-    val isManager = Natives.isManager
-    val fullFeatured = isManager && !Natives.requireNewKernel() && rootAvailable()
+    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
+    val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
     if (!fullFeatured) return
 
     val mainState = LocalMainPagerState.current

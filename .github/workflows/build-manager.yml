@@ -93,6 +93,8 @@ jobs:
     with:
       expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
+      expected_size: ${{ secrets.KSU_EXPECTED_SIZE || '' }}
+      expected_hash: ${{ secrets.KSU_EXPECTED_HASH || '' }}
     secrets: inherit
 
   build-lkm-vivo:
@@ -101,6 +103,8 @@ jobs:
     with:
       expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
+      expected_size: ${{ secrets.KSU_EXPECTED_SIZE || '' }}
+      expected_hash: ${{ secrets.KSU_EXPECTED_HASH || '' }}
     secrets: inherit
 
   build-ksuinit:

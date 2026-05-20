@@ -19,6 +19,16 @@ on:
         required: false
         default: ''
         type: string
+      expected_size:
+        description: 'Primary expected signature size (custom manager builds)'
+        required: false
+        default: ''
+        type: string
+      expected_hash:
+        description: 'Primary expected signature hash (custom manager builds)'
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
 
 jobs:
@@ -41,3 +51,5 @@ jobs:
       vivo: true
       expected_size2: ${{ inputs.expected_size2 || '' }}
       expected_hash2: ${{ inputs.expected_hash2 || '' }}
+      expected_size: ${{ inputs.expected_size || '' }}
+      expected_hash: ${{ inputs.expected_hash || '' }}
