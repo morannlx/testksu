@@ -110,8 +110,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val isManager = Natives.isManager
-        if (isManager && !Natives.requireNewKernel()) install()
+        val isManager = try { Natives.isManager } catch (_: Throwable) { false }
+        if (isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false }) install()
 
         setContent {
             val viewModel = viewModel<MainActivityViewModel>()
@@ -236,8 +236,8 @@ fun MainScreen(
     val enableFloatingBottomBarBlur = LocalEnableFloatingBottomBarBlur.current
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { MainPagerConfig.PAGE_COUNT })
     val mainPagerState = rememberMainPagerState(pagerState)
-    val isManager = Natives.isManager
-    val isFullFeatured = isManager && !Natives.requireNewKernel() && rootAvailable()
+    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
+    val isFullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
     var userScrollEnabled by remember(isFullFeatured) { mutableStateOf(isFullFeatured) }
     val uiMode = LocalUiMode.current
     val surfaceColor = when (uiMode) {
@@ -389,7 +389,7 @@ private fun ZipFileIntentHandler(
     val activity = LocalActivity.current ?: return
     val context = LocalContext.current
     var zipUri by remember { mutableStateOf<Uri?>(null) }
-    val isSafeMode = Natives.isSafeMode
+    val isSafeMode = try { Natives.isSafeMode } catch (_: Throwable) { false }
     val clearZipUri = { zipUri = null }
     val navigator = LocalNavigator.current
 

@@ -44,10 +44,32 @@ class HomeViewModel : ViewModel() {
 
     private fun buildState(): HomeUiState {
         val kernelVersion = getKernelVersion()
-        val isManager = Natives.isManager
-        val ksuVersion = if (isManager) Natives.version else null
-        val lkmMode = ksuVersion?.let { if (kernelVersion.isGKI()) Natives.isLkmMode else null }
-        val isRootAvailable = rootAvailable()
+        val isManager = try {
+            Natives.isManager
+        } catch (_: Throwable) {
+            false
+        }
+        val ksuVersion = if (isManager) {
+            try {
+                Natives.version
+            } catch (_: Throwable) {
+                null
+            }
+        } else null
+        val lkmMode = ksuVersion?.let {
+            if (kernelVersion.isGKI()) {
+                try {
+                    Natives.isLkmMode
+                } catch (_: Throwable) {
+                    null
+                }
+            } else null
+        }
+        val isRootAvailable = try {
+            rootAvailable()
+        } catch (_: Throwable) {
+            false
+        }
         val managerVersion = getManagerVersion(ksuApp)
 
         return HomeUiState(
@@ -56,11 +78,11 @@ class HomeViewModel : ViewModel() {
             lkmMode = lkmMode,
             isManager = isManager,
             isManagerPrBuild = BuildConfig.IS_PR_BUILD,
-            isKernelPrBuild = Natives.isPrBuild,
-            requiresNewKernel = isManager && Natives.requireNewKernel(),
+            isKernelPrBuild = try { Natives.isPrBuild } catch (_: Throwable) { false },
+            requiresNewKernel = isManager && try { Natives.requireNewKernel() } catch (_: Throwable) { false },
             isRootAvailable = isRootAvailable,
-            isSafeMode = Natives.isSafeMode,
-            isLateLoadMode = Natives.isLateLoadMode,
+            isSafeMode = try { Natives.isSafeMode } catch (_: Throwable) { false },
+            isLateLoadMode = try { Natives.isLateLoadMode } catch (_: Throwable) { false },
             checkUpdateEnabled = ksuApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
                 .getBoolean("check_update", true),
             latestVersionInfo = LatestVersionInfo(),

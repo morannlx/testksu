@@ -33,8 +33,8 @@ import me.weishu.kernelsu.ui.util.rootAvailable
 fun NavigationRailMaterial(
     modifier: Modifier = Modifier,
 ) {
-    val isManager = Natives.isManager
-    val fullFeatured = isManager && !Natives.requireNewKernel() && rootAvailable()
+    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
+    val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
     val mainPagerState = LocalMainPagerState.current
 
     if (!fullFeatured) return
