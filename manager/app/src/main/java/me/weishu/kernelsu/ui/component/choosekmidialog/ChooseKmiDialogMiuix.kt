@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,7 +34,8 @@ import top.yukonga.miuix.kmp.preference.CheckboxPreference
 fun ChooseKmiDialogMiuix(
     show: Boolean,
     onDismissRequest: () -> Unit,
-    onSelected: (String?) -> Unit
+    onSelected: (String?) -> Unit,
+    preferredKmi: String? = null
 ) {
     val supportedKMIs by produceState(initialValue = emptyList()) {
         value = getSupportedKmis()
@@ -41,7 +43,34 @@ fun ChooseKmiDialogMiuix(
     val currentKmi by produceState(initialValue = "") {
         value = getCurrentKmi()
     }
-    val currentSelection = rememberSaveable(currentKmi) { mutableStateOf(currentKmi) }
+
+    // Reorder: preferred KMI first, then fallback (base without _vivo), then rest
+    val orderedKMIs = remember(supportedKMIs, preferredKmi) {
+        if (preferredKmi.isNullOrBlank()) {
+            supportedKMIs
+        } else {
+            val preferred = supportedKMIs.firstOrNull { it == preferredKmi }
+            val fallback = if (preferredKmi.endsWith("_vivo")) {
+                preferredKmi.removeSuffix("_vivo")
+            } else {
+                preferredKmi
+            }
+            val secondary = supportedKMIs.firstOrNull { it == fallback }
+            buildList {
+                preferred?.let { add(it) }
+                if (secondary != null && secondary != preferred) add(secondary)
+                addAll(supportedKMIs.filter { it != preferred && it != secondary })
+            }
+        }
+    }
+
+    val currentSelection = remember(orderedKMIs, preferredKmi) {
+        mutableStateOf(
+            orderedKMIs.firstOrNull { it == preferredKmi }
+                ?: orderedKMIs.firstOrNull()
+                ?: currentKmi
+        )
+    }
     OverlayDialog(
         show = show,
         title = stringResource(R.string.select_kmi),
@@ -54,7 +83,7 @@ fun ChooseKmiDialogMiuix(
         content = {
             Column(modifier = Modifier.heightIn(max = 500.dp)) {
                 LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-                    items(supportedKMIs) { kmi ->
+                    items(orderedKMIs) { kmi ->
                         CheckboxPreference(
                             title = kmi,
                             summary = if (kmi == currentKmi) stringResource(R.string.current_device_kmi) else null,
@@ -83,7 +112,7 @@ fun ChooseKmiDialogMiuix(
                     )
                     Spacer(modifier = Modifier.width(20.dp))
                     TextButton(
-                        enabled = supportedKMIs.contains(currentSelection.value),
+                        enabled = orderedKMIs.contains(currentSelection.value),
                         onClick = {
                             onSelected(currentSelection.value)
                             onDismissRequest()

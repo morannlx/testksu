@@ -24,7 +24,8 @@ import me.weishu.kernelsu.ui.util.getSupportedKmis
 fun ChooseKmiDialogMaterial(
     show: Boolean,
     onDismissRequest: () -> Unit,
-    onSelected: (String?) -> Unit
+    onSelected: (String?) -> Unit,
+    preferredKmi: String? = null
 ) {
     if (!show) return
 
@@ -36,7 +37,33 @@ fun ChooseKmiDialogMaterial(
         value = getCurrentKmi()
     }
 
-    val selectedKmi = remember(currentKmi) { mutableStateOf(currentKmi) }
+    // Reorder: preferred KMI first, then fallback (base without _vivo), then rest
+    val orderedKMIs = remember(supportedKMIs, preferredKmi) {
+        if (preferredKmi.isNullOrBlank()) {
+            supportedKMIs
+        } else {
+            val preferred = supportedKMIs.firstOrNull { it == preferredKmi }
+            val fallback = if (preferredKmi.endsWith("_vivo")) {
+                preferredKmi.removeSuffix("_vivo")
+            } else {
+                preferredKmi
+            }
+            val secondary = supportedKMIs.firstOrNull { it == fallback }
+            buildList {
+                preferred?.let { add(it) }
+                if (secondary != null && secondary != preferred) add(secondary)
+                addAll(supportedKMIs.filter { it != preferred && it != secondary })
+            }
+        }
+    }
+
+    val selectedKmi = remember(orderedKMIs, preferredKmi) {
+        mutableStateOf(
+            orderedKMIs.firstOrNull { it == preferredKmi }
+                ?: orderedKMIs.firstOrNull()
+                ?: currentKmi
+        )
+    }
 
     AlertDialog(
         onDismissRequest = {
@@ -73,7 +100,7 @@ fun ChooseKmiDialogMaterial(
         },
         text = {
             SegmentedColumn(
-                content = supportedKMIs.map { kmi ->
+                content = orderedKMIs.map { kmi ->
                     {
                         SegmentedRadioItem(
                             title = kmi,

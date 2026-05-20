@@ -273,6 +273,7 @@ fun installBoot(
     partition: String?,
     allowShell: Boolean,
     enableAdb: Boolean,
+    vivoPatch: Boolean = false,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
 ): FlashResult {
@@ -290,7 +291,22 @@ fun installBoot(
     }
 
     val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
-    var cmd = "boot-patch --magiskboot ${magiskboot.absolutePath}"
+
+    // vivo dual-path:
+    //   * vivo ON + vendor_boot  -> boot-patch-vivo  (rmvr only, NO LKM)
+    //   * vivo ON + init_boot/boot -> boot-patch with --kmi <ver>_vivo (vivo vermagic LKM)
+    //   * vivo OFF               -> boot-patch (standard flow)
+    val useVivoRmvr = vivoPatch && partition == "vendor_boot"
+    val useVivoLkm = vivoPatch && !useVivoRmvr
+    onStdout(
+        when {
+            useVivoRmvr -> "[manager] vivo mode: vendor_boot rmvr (no LKM injection)"
+            useVivoLkm -> "[manager] vivo mode: install vivo-vermagic LKM into ${partition ?: "init_boot"}"
+            else -> "[manager] standard patch flow on ${partition ?: "auto"}"
+        }
+    )
+    var cmd = if (useVivoRmvr) "boot-patch-vivo" else "boot-patch"
+    cmd += " --magiskboot ${magiskboot.absolutePath}"
 
     cmd += if (bootFile == null) {
         // no boot.img, use -f to flash
@@ -326,7 +342,13 @@ fun installBoot(
         }
 
         is LkmSelection.KmiString -> {
-            cmd += " --kmi ${lkm.value}"
+            // vivo LKM path: auto-append _vivo suffix if not already present
+            val selectedKmi = if (useVivoLkm && !lkm.value.endsWith("_vivo")) {
+                "${lkm.value}_vivo"
+            } else {
+                lkm.value
+            }
+            cmd += " --kmi $selectedKmi"
         }
 
         LkmSelection.KmiNone -> {
@@ -339,6 +361,12 @@ fun installBoot(
         val downloadsDir =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         cmd += " -o $downloadsDir"
+
+        if (useVivoRmvr) {
+            cmd += " --out-name kernelsu_patched_rmvr_${System.currentTimeMillis()}.img"
+        } else if (useVivoLkm) {
+            cmd += " --out-name kernelsu_patched_vivo_${System.currentTimeMillis()}.img"
+        }
     }
 
     partition?.let { part ->

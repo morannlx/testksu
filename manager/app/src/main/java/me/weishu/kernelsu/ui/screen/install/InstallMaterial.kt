@@ -188,6 +188,24 @@ internal fun InstallScreenMaterial(
                             )
                         }
                     }
+                    add {
+                        AnimatedVisibility(
+                            uiState.advancedOptionsShown,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            SegmentedCheckboxItem(
+                                title = "vivo mode",
+                                summary = if (uiState.enableVivoPatch) {
+                                    "ON: vendor_boot -> rmvr (no LKM); init_boot/boot -> _vivo LKM"
+                                } else {
+                                    "OFF: standard patch flow"
+                                },
+                                checked = uiState.enableVivoPatch,
+                                onCheckedChange = actions.onSelectEnableVivoPatch,
+                            )
+                        }
+                    }
                 }
             )
             Button(

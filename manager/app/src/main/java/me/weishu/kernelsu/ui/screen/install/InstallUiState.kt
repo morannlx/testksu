@@ -16,6 +16,7 @@ internal data class InstallUiState(
     val advancedOptionsShown: Boolean,
     val allowShell: Boolean,
     val enableAdb: Boolean,
+    val enableVivoPatch: Boolean,
 )
 
 @Immutable
@@ -30,4 +31,5 @@ internal data class InstallScreenActions(
     val onAdvancedOptionsClicked: () -> Unit,
     val onSelectAllowShell: (Boolean) -> Unit,
     val onSelectEnableAdb: (Boolean) -> Unit,
+    val onSelectEnableVivoPatch: (Boolean) -> Unit,
 )

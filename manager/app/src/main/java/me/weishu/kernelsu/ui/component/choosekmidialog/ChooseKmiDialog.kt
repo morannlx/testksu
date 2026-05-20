@@ -8,10 +8,11 @@ import me.weishu.kernelsu.ui.UiMode
 fun ChooseKmiDialog(
     show: Boolean,
     onDismissRequest: () -> Unit,
-    onSelected: (String?) -> Unit
+    onSelected: (String?) -> Unit,
+    preferredKmi: String? = null
 ) {
     when (LocalUiMode.current) {
-        UiMode.Miuix -> ChooseKmiDialogMiuix(show, onDismissRequest, onSelected)
-        UiMode.Material -> ChooseKmiDialogMaterial(show, onDismissRequest, onSelected)
+        UiMode.Miuix -> ChooseKmiDialogMiuix(show, onDismissRequest, onSelected, preferredKmi)
+        UiMode.Material -> ChooseKmiDialogMaterial(show, onDismissRequest, onSelected, preferredKmi)
     }
 }

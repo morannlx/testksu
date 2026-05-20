@@ -227,6 +227,16 @@ internal fun InstallScreenMiuix(
                                     summary = stringResource(id = R.string.enable_adb_summary),
                                     onCheckedChange = actions.onSelectEnableAdb
                                 )
+                                CheckboxPreference(
+                                    title = "vivo mode",
+                                    checked = uiState.enableVivoPatch,
+                                    summary = if (uiState.enableVivoPatch) {
+                                        "ON: vendor_boot -> rmvr (no LKM); init_boot/boot -> _vivo LKM"
+                                    } else {
+                                        "OFF: standard patch flow"
+                                    },
+                                    onCheckedChange = actions.onSelectEnableVivoPatch
+                                )
                             }
                         }
                     }

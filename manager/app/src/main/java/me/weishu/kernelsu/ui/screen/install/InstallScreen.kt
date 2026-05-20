@@ -2,6 +2,7 @@ package me.weishu.kernelsu.ui.screen.install
 
 import android.app.Activity
 import android.content.Intent
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +47,14 @@ fun InstallScreen() {
     var advancedOptionsShown by rememberSaveable { mutableStateOf(false) }
     var allowShell by rememberSaveable { mutableStateOf(false) }
     var enableAdb by rememberSaveable { mutableStateOf(false) }
+    var enableVivoPatch by rememberSaveable {
+        mutableStateOf(
+            Build.MANUFACTURER.orEmpty().contains("vivo", ignoreCase = true) ||
+                Build.MANUFACTURER.orEmpty().contains("iqoo", ignoreCase = true) ||
+                Build.BRAND.orEmpty().contains("vivo", ignoreCase = true) ||
+                Build.BRAND.orEmpty().contains("iqoo", ignoreCase = true)
+        )
+    }
 
     val currentKmi by produceState(initialValue = "") { value = getCurrentKmi() }
     val partitions by produceState(initialValue = emptyList()) { value = getAvailablePartitions() }
@@ -96,10 +105,21 @@ fun InstallScreen() {
                         partition = partitions.getOrNull(partitionSelectionIndex),
                         allowShell = allowShell,
                         enableAdb = enableAdb,
+                        vivoPatch = enableVivoPatch,
                     )
                 )
             )
         }
+    }
+
+    // When vivo mode is on, prefer the _vivo KMI variant in the dialog
+    val preferVivoKmi = enableVivoPatch
+    val preferredKmiForDialog = if (preferVivoKmi) {
+        currentKmi.takeIf { it.isNotBlank() }?.let { base ->
+            if (base.endsWith("_vivo")) base else "${base}_vivo"
+        }
+    } else {
+        currentKmi.takeIf { it.isNotBlank() }
     }
 
     ChooseKmiDialog(
@@ -110,7 +130,8 @@ fun InstallScreen() {
                 lkmSelection = LkmSelection.KmiString(it)
                 onInstall()
             }
-        }
+        },
+        preferredKmi = preferredKmiForDialog
     )
 
     val selectLkmLauncher = rememberLauncherForActivityResult(
@@ -149,6 +170,7 @@ fun InstallScreen() {
         advancedOptionsShown = advancedOptionsShown,
         allowShell = allowShell,
         enableAdb = enableAdb,
+        enableVivoPatch = enableVivoPatch,
     )
     val actions = InstallScreenActions(
         onBack = dropUnlessResumed { navigator.pop() },
@@ -165,10 +187,12 @@ fun InstallScreen() {
             partitionSelectionIndex = index
         },
         onNext = {
-            val isLkmSelected = lkmSelection != LkmSelection.KmiNone
-            val isKmiUnknown = currentKmi.isBlank()
-            val isSelectFileMode = installMethod is InstallMethod.SelectFile
-            if (!isLkmSelected && (isKmiUnknown || isSelectFileMode)) {
+            // Force KMI selection dialog on all GKI installs so vivo users
+            // can manually pick the _vivo KMI variant. Only skip when a KMI
+            // is already selected or not a GKI device.
+            val needsKmi = isGkiDevice &&
+                lkmSelection == LkmSelection.KmiNone
+            if (needsKmi) {
                 showChooseKmiDialog.value = true
             } else {
                 onInstall()
@@ -182,6 +206,9 @@ fun InstallScreen() {
         },
         onSelectEnableAdb = {
             enableAdb = it
+        },
+        onSelectEnableVivoPatch = {
+            enableVivoPatch = it
         },
     )
 

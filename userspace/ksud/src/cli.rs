@@ -117,6 +117,9 @@ enum Commands {
     /// Patch boot or init_boot images to apply KernelSU
     BootPatch(BootPatchArgs),
 
+    /// Patch vendor_boot for vivo devices and remove vr.ko related entries
+    BootPatchVivo(BootPatchArgs),
+
     /// Restore boot or init_boot images patched by KernelSU
     BootRestore(BootRestoreArgs),
 
@@ -703,6 +706,8 @@ pub fn run() -> Result<()> {
         },
 
         Commands::BootPatch(boot_patch) => crate::boot_patch::patch(boot_patch),
+
+        Commands::BootPatchVivo(boot_patch) => crate::boot_patch::patch_vivo(boot_patch),
 
         Commands::BootInfo { command } => match command {
             BootInfo::CurrentKmi => {
