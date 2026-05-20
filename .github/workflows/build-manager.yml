@@ -99,24 +99,45 @@ jobs:
           echo "custom_size=${{ secrets.KSU_EXPECTED_SIZE }}" >> "$GITHUB_OUTPUT"
           echo "custom_hash=${{ secrets.KSU_EXPECTED_HASH }}" >> "$GITHUB_OUTPUT"
 
+  # Compute KSU_VERSION once from git and pass to all build jobs.
+  # This ensures kernel, manager, and ksud all use the same version number.
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      ksu_version: ${{ steps.version.outputs.ksu_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Compute KSU_VERSION
+        id: version
+        run: |
+          KSU_GIT_COUNT=$(git rev-list --count HEAD)
+          KSU_VER=$((30000 + KSU_GIT_COUNT))
+          echo "ksu_version=$KSU_VER" >> "$GITHUB_OUTPUT"
+          echo "KSU_VERSION=$KSU_VER (git commits: $KSU_GIT_COUNT)"
+
   build-lkm:
-    needs: [generate-key, resolve-custom-cert]
+    needs: [generate-key, resolve-custom-cert, compute-version]
     uses: ./.github/workflows/build-lkm.yml
     with:
       expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
       expected_size: ${{ needs.resolve-custom-cert.outputs.custom_size || '' }}
       expected_hash: ${{ needs.resolve-custom-cert.outputs.custom_hash || '' }}
+      ksu_version: ${{ needs.compute-version.outputs.ksu_version }}
     secrets: inherit
 
   build-lkm-vivo:
-    needs: [generate-key, resolve-custom-cert]
+    needs: [generate-key, resolve-custom-cert, compute-version]
     uses: ./.github/workflows/build-lkm-vivo.yml
     with:
       expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
       expected_size: ${{ needs.resolve-custom-cert.outputs.custom_size || '' }}
       expected_hash: ${{ needs.resolve-custom-cert.outputs.custom_hash || '' }}
+      ksu_version: ${{ needs.compute-version.outputs.ksu_version }}
     secrets: inherit
 
   build-ksuinit:
