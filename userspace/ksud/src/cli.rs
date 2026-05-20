@@ -58,7 +58,7 @@ enum Commands {
         kmi: Option<String>,
 
         /// manager package name
-        #[arg(long, default_value_t = String::from("me.weishu.kernelsu"))]
+        #[arg(long, default_value_t = String::from("me.inkdye.vivoksu"))]
         package_name: String,
     },
 
@@ -92,7 +92,7 @@ enum Commands {
         #[arg(long, default_value = None)]
         magiskboot: Option<PathBuf>,
 
-        #[arg(long, default_value_t = String::from("me.weishu.kernelsu"))]
+        #[arg(long, default_value_t = String::from("me.inkdye.vivoksu"))]
         package_name: String,
     },
 
@@ -178,7 +178,7 @@ enum Debug {
     /// Set the manager app, kernel CONFIG_KSU_DEBUG should be enabled.
     SetManager {
         /// manager package name
-        #[arg(default_value_t = String::from("me.weishu.kernelsu"))]
+        #[arg(default_value_t = String::from("me.inkdye.vivoksu"))]
         apk: String,
     },
 
