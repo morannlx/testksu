@@ -87,24 +87,36 @@ jobs:
           echo "Certificate size: $SIZE_HEX ($SIZE_DEC bytes)"
           echo "Certificate hash: $HASH"
 
+  resolve-custom-cert:
+    runs-on: ubuntu-latest
+    outputs:
+      custom_size: ${{ steps.resolve.outputs.custom_size }}
+      custom_hash: ${{ steps.resolve.outputs.custom_hash }}
+    steps:
+      - name: Resolve custom certificate secrets
+        id: resolve
+        run: |
+          echo "custom_size=${{ secrets.KSU_EXPECTED_SIZE }}" >> "$GITHUB_OUTPUT"
+          echo "custom_hash=${{ secrets.KSU_EXPECTED_HASH }}" >> "$GITHUB_OUTPUT"
+
   build-lkm:
-    needs: generate-key
+    needs: [generate-key, resolve-custom-cert]
     uses: ./.github/workflows/build-lkm.yml
     with:
       expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
-      expected_size: ${{ secrets.KSU_EXPECTED_SIZE || '' }}
-      expected_hash: ${{ secrets.KSU_EXPECTED_HASH || '' }}
+      expected_size: ${{ needs.resolve-custom-cert.outputs.custom_size || '' }}
+      expected_hash: ${{ needs.resolve-custom-cert.outputs.custom_hash || '' }}
     secrets: inherit
 
   build-lkm-vivo:
-    needs: generate-key
+    needs: [generate-key, resolve-custom-cert]
     uses: ./.github/workflows/build-lkm-vivo.yml
     with:
       expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
       expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
-      expected_size: ${{ secrets.KSU_EXPECTED_SIZE || '' }}
-      expected_hash: ${{ secrets.KSU_EXPECTED_HASH || '' }}
+      expected_size: ${{ needs.resolve-custom-cert.outputs.custom_size || '' }}
+      expected_hash: ${{ needs.resolve-custom-cert.outputs.custom_hash || '' }}
     secrets: inherit
 
   build-ksuinit:
