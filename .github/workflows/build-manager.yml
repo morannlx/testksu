@@ -349,7 +349,6 @@ jobs:
             --strip
 
       - name: Upload build artifact
-        if: ${{ github.event_name == 'pull_request' || (github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) || github.ref_type == 'tag' }}
         uses: actions/upload-artifact@v7
         with:
           name: manager
