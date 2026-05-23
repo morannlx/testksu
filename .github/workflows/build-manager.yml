@@ -411,7 +411,7 @@ jobs:
 
           # 4) build.gradle.kts — override applicationId for lite build
           sed -i \
-            -e '/namespace = "me\.inkdye\.vivoksu"/a\        val isLite = project.findProperty("lite")?.toString()?.toBoolean() ?: false\n        if (isLite) applicationId = "me.inkdye.vivoksu.lite"' \
+            -e '/defaultConfig {/a\        val isLite = project.findProperty("lite")?.toString()?.toBoolean() ?: false\n        if (isLite) applicationId = "me.inkdye.vivoksu.lite"' \
             app/build.gradle.kts
 
           echo "Lite source patches applied"
