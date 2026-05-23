@@ -387,7 +387,7 @@ jobs:
 
       - name: Strip boot-patch / install capability
         run: |
-          cd app/src/main/java/me/inkdye/vivoksu
+          JAVA_SRC=app/src/main/java/me/inkdye/vivoksu
 
           # 1) MainActivity.kt — replace Install & Flash routes with placeholder
           sed -i \
@@ -395,22 +395,21 @@ jobs:
             -e 's|entry<Route.Flash> { key -> FlashScreen(key.flashIt) }|entry<Route.Flash> { /* lite: no flash */ }|' \
             -e 's|import me.inkdye.vivoksu.ui.screen.install.InstallScreen|// import removed for lite|' \
             -e 's|import me.inkdye.vivoksu.ui.screen.flash.FlashScreen|// import removed for lite|' \
-            ui/MainActivity.kt
+            "$JAVA_SRC/ui/MainActivity.kt"
 
           # 2) HomeMiuix.kt — hide install button when not installed
           sed -i \
             -e 's|actions\.onInstallClick()|/* lite: install disabled */|g' \
             -e 's|onInstallClick = {|onInstallClick = { /* no-op */|' \
-            ui/screen/home/HomeMiuix.kt
+            "$JAVA_SRC/ui/screen/home/HomeMiuix.kt"
 
           # 3) HomeMaterial.kt — same treatment
           sed -i \
             -e 's|actions\.onInstallClick()|/* lite: install disabled */|g' \
             -e 's|onInstallClick = {|onInstallClick = { /* no-op */|' \
-            ui/screen/home/HomeMaterial.kt
+            "$JAVA_SRC/ui/screen/home/HomeMaterial.kt"
 
           # 4) build.gradle.kts — override applicationId for lite build
-          cd ../../..
           sed -i \
             -e '/namespace = "me\.inkdye\.vivoksu"/a\        val isLite = project.findProperty("lite")?.toString()?.toBoolean() ?: false\n        if (isLite) applicationId = "me.inkdye.vivoksu.lite"' \
             app/build.gradle.kts
