@@ -269,6 +269,7 @@ sealed class LkmSelection : Parcelable {
 
 private const val AVB_ASSETS_DIR = "avb"
 private const val PYTHON_ASSETS_DIR = "python_env"
+private const val AVB_PATCH_DIR = "/data/local/tmp"
 private const val AVB_WORK_DIR = "/data/local/tmp/ksu_avb"
 private const val PYTHON_WORK_DIR = "/data/local/tmp/ksu_python"
 
@@ -479,10 +480,8 @@ fun installBoot(
 
     // Lenovo mode: patch without flash, then sign, then flash manually
     if (lenovoMode && bootFile == null) {
-        // Direct install with Lenovo mode: output to temp dir for signing
-        val avbWorkDir = File(AVB_WORK_DIR)
-        avbWorkDir.mkdirs()
-        cmd += " -o $avbWorkDir --out-name patched_boot.img"
+        // Direct install with Lenovo mode: output to /data/local/tmp for signing
+        cmd += " -o $AVB_PATCH_DIR --out-name lenovo_patched_boot.img"
     } else if (bootFile == null) {
         // Standard direct install: flash directly
         cmd += " -f"
@@ -572,8 +571,8 @@ fun installBoot(
             }
         } else {
             // Direct install: sign the temp output, then dd flash
-            val avbWorkDir = File(AVB_WORK_DIR)
-            val patchedImage = File(avbWorkDir, "patched_boot.img")
+            val patchDir = File(AVB_PATCH_DIR)
+            val patchedImage = File(patchDir, "lenovo_patched_boot.img")
             if (patchedImage.exists()) {
                 val signed = signWithAvbtool(ksuApp, patchedImage, targetPartition, onStdout, onStderr)
                 if (signed) {
