@@ -465,14 +465,14 @@ private fun lenovoSignAndFlash(
     // For non-chain mode: use algorithm=NONE with salt from original image
     onStdout("[lenovo] Step 3: Adding hash footer to patched image...")
     val signAlgorithm = "NONE"  // Non-chain mode: sha256 hash only
-    val addFooterCmd = mutableListOf(
+    val addFooterArgs = arrayOf(
         avbtool, "add_hash_footer",
         "--image", patchedImage.absolutePath,
         "--partition_name", partition,
         "--partition_size", partitionSize,
         "--algorithm", signAlgorithm
     )
-    val addFooterResult = runAvbtool(launcherPath, *addFooterCmd.toTypedArray(),
+    val addFooterResult = runAvbtool(launcherPath, *addFooterArgs,
         onStdout = onStdout, onStderr = onStderr)
     if (!addFooterResult.isSuccess) {
         onStderr("[lenovo] ERROR: Failed to add hash footer")
@@ -497,7 +497,7 @@ private fun lenovoSignAndFlash(
                 else -> File(workDir, "testkey_rsa4096.pem")
             }
             val newVbmeta = File(KSU_WORK_DIR, "vbmeta_new.img")
-            val rebuildCmd = mutableListOf(
+            val rebuildArgs = arrayOf(
                 avbtool, "make_vbmeta_image",
                 "--output", newVbmeta.absolutePath,
                 "--algorithm", vbmetaAlgorithm,
@@ -509,7 +509,7 @@ private fun lenovoSignAndFlash(
                 "--include_descriptors_from_image", vbmetaImage.absolutePath,
                 "--include_descriptors_from_image", patchedImage.absolutePath
             )
-            val rebuildResult = runAvbtool(launcherPath, *rebuildCmd.toTypedArray(),
+            val rebuildResult = runAvbtool(launcherPath, *rebuildArgs,
                 onStdout = onStdout, onStderr = onStderr)
             if (rebuildResult.isSuccess && newVbmeta.exists()) {
                 // Replace original vbmeta with rebuilt one
