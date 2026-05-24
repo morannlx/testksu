@@ -269,8 +269,7 @@ sealed class LkmSelection : Parcelable {
 
 private const val AVB_ASSETS_DIR = "avb"
 private const val PYTHON_ASSETS_DIR = "python_env"
-private const val AVB_PATCH_DIR = "/data/local/tmp"
-private const val AVB_WORK_DIR = "/data/local/tmp/ksu_avb"
+private const val KSU_WORK_DIR = "/data/local/tmp/ksu_work"
 private const val PYTHON_WORK_DIR = "/data/local/tmp/ksu_python"
 
 private fun extractAssetDir(context: Context, assetDir: String, targetDir: File) {
@@ -279,12 +278,10 @@ private fun extractAssetDir(context: Context, assetDir: String, targetDir: File)
     for (name in files) {
         val subAssets = assetManager.list("$assetDir/$name")
         if (subAssets != null && subAssets.isNotEmpty()) {
-            // It's a directory
             val subDir = File(targetDir, name)
             subDir.mkdirs()
             extractAssetDir(context, "$assetDir/$name", subDir)
         } else {
-            // It's a file
             val outFile = File(targetDir, name)
             if (!outFile.exists()) {
                 assetManager.open("$assetDir/$name").use { input ->
@@ -299,9 +296,10 @@ private fun extractAssetDir(context: Context, assetDir: String, targetDir: File)
 
 private fun setupBundledPython(context: Context): String? {
     val pythonDir = File(PYTHON_WORK_DIR)
+    val launcher = File(pythonDir, "python_launcher.sh")
 
-    // Extract Python environment if not already present
-    if (!pythonDir.exists() || !File(pythonDir, "python").exists()) {
+    // Extract Python environment if launcher script is missing
+    if (!launcher.exists()) {
         pythonDir.mkdirs()
         try {
             extractAssetDir(context, PYTHON_ASSETS_DIR, pythonDir)
@@ -311,21 +309,44 @@ private fun setupBundledPython(context: Context): String? {
         }
     }
 
+    // Verify extraction succeeded
     val pythonBin = File(pythonDir, "python")
-    if (!pythonBin.exists()) return null
-
-    // Set execute permissions via root shell
-    withNewRootShell {
-        newJob().add("chmod 755 ${pythonBin.absolutePath}").exec()
-        // Also chmod all .so files
-        newJob().add("chmod 755 ${pythonDir}/*.so* 2>/dev/null").exec()
+    if (!pythonBin.exists()) {
+        Log.e("KsuCli", "Python binary not found after extraction")
+        return null
+    }
+    if (!launcher.exists()) {
+        Log.e("KsuCli", "Python launcher script not found after extraction")
+        return null
     }
 
-    return pythonBin.absolutePath
+    // Set execute permissions via root shell (single command to avoid race conditions)
+    val chmodResult = withNewRootShell {
+        newJob().add(
+            "chmod 755 ${pythonBin.absolutePath} && " +
+            "chmod 755 ${launcher.absolutePath}"
+        ).exec()
+    }
+    if (!chmodResult.isSuccess) {
+        Log.e("KsuCli", "chmod failed: ${chmodResult.err.joinToString()}")
+        return null
+    }
+
+    // Verify the launcher script can execute Python
+    val testResult = withNewRootShell {
+        newJob().add("sh ${launcher.absolutePath} -c 'import sys; print(sys.version)'").exec()
+    }
+    if (!testResult.isSuccess) {
+        Log.e("KsuCli", "Python test failed: ${testResult.err.joinToString()}")
+        return null
+    }
+    Log.i("KsuCli", "Bundled Python OK: ${testResult.out.joinToString("").trim()}")
+
+    return launcher.absolutePath
 }
 
 private fun copyAvbAssetsToWorkDir(context: Context): File {
-    val workDir = File(AVB_WORK_DIR)
+    val workDir = File(KSU_WORK_DIR)
     workDir.mkdirs()
 
     val assetNames = listOf("avbtool.py", "testkey_rsa4096.pem", "testkey_rsa2048.pem")
@@ -342,67 +363,85 @@ private fun copyAvbAssetsToWorkDir(context: Context): File {
     return workDir
 }
 
-private fun parseAvbInfo(infoOutput: String): Pair<String, String>? {
+/**
+ * Parse full AVB info from avbtool info_image output.
+ * Returns: Triple(algorithm, rollback_index, image_size) or null on failure.
+ */
+private fun parseAvbFullInfo(infoOutput: String): Triple<String, String, String>? {
     val algorithm = Regex("Algorithm:\\s+(\\S+)").find(infoOutput)?.groupValues?.get(1) ?: return null
+    val rollbackIndex = Regex("Rollback Index:\\s+(\\d+)").find(infoOutput)?.groupValues?.get(1) ?: "0"
     val imageSize = Regex("Image size:\\s+(\\d+)\\s+bytes").find(infoOutput)?.groupValues?.get(1) ?: return null
-    return Pair(algorithm, imageSize)
+    return Triple(algorithm, rollbackIndex, imageSize)
 }
 
-private fun signWithAvbtool(
+/**
+ * Run an avbtool command via the bundled Python launcher.
+ * Returns the Shell.Result from flashWithIO.
+ */
+private fun runAvbtool(
+    launcherPath: String,
+    avbtoolPath: String,
+    vararg args: String,
+    onStdout: (String) -> Unit,
+    onStderr: (String) -> Unit,
+): com.topjohnwu.superuser.Shell.Result {
+    val cmd = "sh $launcherPath $avbtoolPath ${args.joinToString(" ")}"
+    return flashWithIO(cmd, onStdout, onStderr)
+}
+
+/**
+ * Lenovo AVB signing using non-chain mode (matching 非链式.sh / rebuild_avb.py).
+ *
+ * Flow:
+ * 1. Parse original (unpatched) boot image to get algorithm, rollback_index, partition_size
+ * 2. Erase footer on patched image
+ * 3. Add hash footer on patched image using original parameters
+ * 4. Rebuild vbmeta.img with original vbmeta algorithm/rollback_index/flags
+ * 5. Flash both signed images (or output to Downloads)
+ */
+private fun lenovoSignAndFlash(
     context: Context,
+    originalImage: File,
     patchedImage: File,
+    vbmetaImage: File?,
     partition: String,
+    ota: Boolean,
+    isDirectFlash: Boolean,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
 ): Boolean {
-    onStdout("[lenovo] Starting AVB signing for $partition...")
+    onStdout("[lenovo] === AVB Signing (non-chain mode) ===")
 
-    val pythonBin = setupBundledPython(context)
-    if (pythonBin == null) {
+    // Step 0: Setup Python
+    val launcherPath = setupBundledPython(context)
+    if (launcherPath == null) {
         onStderr("[lenovo] ERROR: Failed to setup bundled Python environment")
         return false
     }
-    onStdout("[lenovo] Using bundled Python: $pythonBin")
+    onStdout("[lenovo] Python launcher: $launcherPath")
 
     val workDir = copyAvbAssetsToWorkDir(context)
-    val avbtool = File(workDir, "avbtool.py")
+    val avbtool = File(workDir, "avbtool.py").absolutePath
 
-    // Build environment prefix: set LD_LIBRARY_PATH and PYTHONHOME for the bundled Python
-    val pythonDir = File(PYTHON_WORK_DIR)
-    val envPrefix = "export LD_LIBRARY_PATH=${pythonDir}:\$LD_LIBRARY_PATH && " +
-        "export PYTHONHOME=${pythonDir} && " +
-        "export PYTHONPATH=${pythonDir}/lib/python3.12 && "
-
-    // Step 1: Get image info
-    onStdout("[lenovo] Step 1: Parsing AVB image info...")
-    val infoResult = flashWithIO(
-        "${envPrefix}${pythonBin} ${avbtool.absolutePath} info_image --image ${patchedImage.absolutePath}",
-        onStdout, onStderr
-    )
-    if (!infoResult.isSuccess) {
-        onStderr("[lenovo] ERROR: Failed to parse AVB image info")
+    // Step 1: Parse ORIGINAL image info (to get algorithm, rollback_index, partition_size)
+    onStdout("[lenovo] Step 1: Parsing original image info...")
+    val origInfoResult = runAvbtool(launcherPath, avbtool,
+        "info_image", "--image", originalImage.absolutePath,
+        onStdout = onStdout, onStderr = onStderr)
+    if (!origInfoResult.isSuccess) {
+        onStderr("[lenovo] ERROR: Failed to parse original image")
         return false
     }
-
-    val infoOutput = infoResult.out.joinToString("\n")
-    val (algorithm, imageSize) = parseAvbInfo(infoOutput)
-        ?: run {
-            onStderr("[lenovo] ERROR: Could not parse algorithm or image size from AVB info")
-            return false
-        }
-    onStdout("[lenovo] Detected algorithm: $algorithm, image size: $imageSize bytes")
-
-    // Step 2: Erase old AVB footer
-    onStdout("[lenovo] Step 2: Erasing old AVB footer...")
-    val eraseResult = flashWithIO(
-        "${envPrefix}${pythonBin} ${avbtool.absolutePath} erase_footer --image ${patchedImage.absolutePath}",
-        onStdout, onStderr
-    )
-    if (!eraseResult.isSuccess) {
-        onStderr("[lenovo] WARNING: Erase footer failed (may be no footer), continuing...")
+    val origInfo = origInfoResult.out.joinToString("\n")
+    val origParsed = parseAvbFullInfo(origInfo)
+    if (origParsed == null) {
+        onStderr("[lenovo] ERROR: Could not parse algorithm/rollback_index from original image")
+        return false
     }
+    val (algorithm, rollbackIndex, partitionSize) = origParsed
+    onStdout("[lenovo] Original: algorithm=$algorithm, rollback_index=$rollbackIndex, partition_size=$partitionSize")
 
-    // Step 3: Select key based on algorithm
+    // Step 2: Select key based on algorithm
     val keyFile = when {
         algorithm.contains("RSA4096") -> File(workDir, "testkey_rsa4096.pem")
         algorithm.contains("RSA2048") -> File(workDir, "testkey_rsa2048.pem")
@@ -413,24 +452,127 @@ private fun signWithAvbtool(
     }
     onStdout("[lenovo] Using key: ${keyFile.name}")
 
-    // Step 4: Add new hash footer
-    onStdout("[lenovo] Step 3: Adding AVB hash footer...")
-    val signResult = flashWithIO(
-        "${envPrefix}${pythonBin} ${avbtool.absolutePath} add_hash_footer " +
-            "--image ${patchedImage.absolutePath} " +
-            "--partition_name $partition " +
-            "--partition_size $imageSize " +
-            "--algorithm $algorithm " +
-            "--key ${keyFile.absolutePath} " +
-            "--rollback_index 0",
-        onStdout, onStderr
+    // Step 3: Erase footer on patched image
+    onStdout("[lenovo] Step 2: Erasing AVB footer on patched image...")
+    val eraseResult = runAvbtool(launcherPath, avbtool,
+        "erase_footer", "--image", patchedImage.absolutePath,
+        onStdout = onStdout, onStderr = onStderr)
+    if (!eraseResult.isSuccess) {
+        onStderr("[lenovo] WARNING: erase_footer failed (may have no footer), continuing...")
+    }
+
+    // Step 4: Add hash footer on patched image (non-chain: algorithm=NONE for sha256)
+    // For non-chain mode: use algorithm=NONE with salt from original image
+    onStdout("[lenovo] Step 3: Adding hash footer to patched image...")
+    val signAlgorithm = "NONE"  // Non-chain mode: sha256 hash only
+    val addFooterCmd = mutableListOf(
+        avbtool, "add_hash_footer",
+        "--image", patchedImage.absolutePath,
+        "--partition_name", partition,
+        "--partition_size", partitionSize,
+        "--algorithm", signAlgorithm
     )
-    if (!signResult.isSuccess) {
-        onStderr("[lenovo] ERROR: Failed to add AVB hash footer")
+    val addFooterResult = runAvbtool(launcherPath, *addFooterCmd.toTypedArray(),
+        onStdout = onStdout, onStderr = onStderr)
+    if (!addFooterResult.isSuccess) {
+        onStderr("[lenovo] ERROR: Failed to add hash footer")
         return false
     }
 
-    onStdout("[lenovo] AVB signing completed successfully!")
+    // Step 5: Rebuild vbmeta if vbmeta.img is available
+    if (vbmetaImage != null && vbmetaImage.exists()) {
+        onStdout("[lenovo] Step 4: Rebuilding vbmeta...")
+        val vbmetaInfoResult = runAvbtool(launcherPath, avbtool,
+            "info_image", "--image", vbmetaImage.absolutePath,
+            onStdout = onStdout, onStderr = onStderr)
+        if (vbmetaInfoResult.isSuccess) {
+            val vbmetaInfo = vbmetaInfoResult.out.joinToString("\n")
+            val vbmetaAlgorithm = Regex("Algorithm:\\s+(\\S+)").find(vbmetaInfo)?.groupValues?.get(1) ?: "SHA256_RSA4096"
+            val vbmetaRollback = Regex("Rollback Index:\\s+(\\d+)").find(vbmetaInfo)?.groupValues?.get(1) ?: "0"
+            val vbmetaFlags = Regex("Flags:\\s+(\\d+)").find(vbmetaInfo)?.groupValues?.get(1) ?: "0"
+
+            val vbmetaKeyFile = when {
+                vbmetaAlgorithm.contains("RSA4096") -> File(workDir, "testkey_rsa4096.pem")
+                vbmetaAlgorithm.contains("RSA2048") -> File(workDir, "testkey_rsa2048.pem")
+                else -> File(workDir, "testkey_rsa4096.pem")
+            }
+            val newVbmeta = File(KSU_WORK_DIR, "vbmeta_new.img")
+            val rebuildCmd = mutableListOf(
+                avbtool, "make_vbmeta_image",
+                "--output", newVbmeta.absolutePath,
+                "--algorithm", vbmetaAlgorithm,
+                "--key", vbmetaKeyFile.absolutePath,
+                "--rollback_index", vbmetaRollback,
+                "--flags", vbmetaFlags,
+                "--rollback_index_location", "0",
+                "--padding_size", "4096",
+                "--include_descriptors_from_image", vbmetaImage.absolutePath,
+                "--include_descriptors_from_image", patchedImage.absolutePath
+            )
+            val rebuildResult = runAvbtool(launcherPath, *rebuildCmd.toTypedArray(),
+                onStdout = onStdout, onStderr = onStderr)
+            if (rebuildResult.isSuccess && newVbmeta.exists()) {
+                // Replace original vbmeta with rebuilt one
+                newVbmeta.copyTo(vbmetaImage, overwrite = true)
+                newVbmeta.delete()
+                onStdout("[lenovo] vbmeta rebuilt successfully")
+            } else {
+                onStderr("[lenovo] WARNING: vbmeta rebuild failed, using original")
+            }
+        }
+    }
+
+    // Step 6: Flash or output
+    if (isDirectFlash) {
+        onStdout("[lenovo] Step 5: Flashing signed images...")
+        val slotSuffix = withNewRootShell {
+            val slotCmd = if (ota) "boot-info slot-suffix --ota" else "boot-info slot-suffix"
+            val out = newJob().add("${getKsuDaemonPath()} $slotCmd").to(ArrayList(), null).exec().out
+            out.filter { it.isNotBlank() }.joinToString("").trim()
+        }
+        // Flash patched+signed boot image
+        val bootDevice = "/dev/block/by-name/${partition}${slotSuffix}"
+        onStdout("[lenovo] dd if=${patchedImage.absolutePath} of=$bootDevice")
+        val ddBoot = flashWithIO("dd if=${patchedImage.absolutePath} of=$bootDevice",
+            onStdout, onStderr)
+        if (!ddBoot.isSuccess) {
+            onStderr("[lenovo] ERROR: Failed to flash $partition")
+            return false
+        }
+        // Flash rebuilt vbmeta
+        if (vbmetaImage != null && vbmetaImage.exists()) {
+            val vbmetaDevice = "/dev/block/by-name/vbmeta${slotSuffix}"
+            onStdout("[lenovo] dd if=${vbmetaImage.absolutePath} of=$vbmetaDevice")
+            val ddVbmeta = flashWithIO("dd if=${vbmetaImage.absolutePath} of=$vbmetaDevice",
+                onStdout, onStderr)
+            if (!ddVbmeta.isSuccess) {
+                onStderr("[lenovo] WARNING: Failed to flash vbmeta (non-fatal)")
+            }
+        }
+        onStdout("[lenovo] Flash completed!")
+        // Cleanup
+        patchedImage.delete()
+        vbmetaImage?.delete()
+        originalImage.delete()
+    } else {
+        // Output to Downloads
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        downloadsDir.mkdirs()
+        val ts = System.currentTimeMillis()
+        val signedBoot = File(downloadsDir, "lenovo_signed_${partition}_${ts}.img")
+        patchedImage.copyTo(signedBoot, overwrite = true)
+        patchedImage.delete()
+        onStdout("[lenovo] Signed $partition saved: ${signedBoot.absolutePath}")
+        if (vbmetaImage != null && vbmetaImage.exists()) {
+            val signedVbmeta = File(downloadsDir, "lenovo_signed_vbmeta_${ts}.img")
+            vbmetaImage.copyTo(signedVbmeta, overwrite = true)
+            vbmetaImage.delete()
+            onStdout("[lenovo] Signed vbmeta saved: ${signedVbmeta.absolutePath}")
+        }
+        originalImage.delete()
+    }
+
+    onStdout("[lenovo] === AVB signing completed ===")
     return true
 }
 
@@ -481,7 +623,7 @@ fun installBoot(
     // Lenovo mode: patch without flash, then sign, then flash manually
     if (lenovoMode && bootFile == null) {
         // Direct install with Lenovo mode: output to /data/local/tmp for signing
-        cmd += " -o $AVB_PATCH_DIR --out-name lenovo_patched_boot.img"
+        cmd += " -o $KSU_WORK_DIR --out-name lenovo_patched_boot.img"
     } else if (bootFile == null) {
         // Standard direct install: flash directly
         cmd += " -f"
@@ -552,58 +694,102 @@ fun installBoot(
     val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
     Log.i("KernelSU", "install boot result: ${result.isSuccess}")
 
-    // Lenovo mode: sign the patched image and flash manually
+    // Lenovo mode: patch → sign (non-chain) → flash/output
     if (lenovoMode && result.isSuccess) {
-        val targetPartition = partition ?: "boot"
+        val targetPartition = partition ?: "init_boot"
+        onStdout("[lenovo] Target partition: $targetPartition")
+
+        val workDir = File(KSU_WORK_DIR)
+        workDir.mkdirs()
+
         val signedOk = if (bootFile != null) {
-            // File mode: sign the output in Downloads
+            // ---- File mode: user selected a boot image file ----
+            // Patched image is already in Downloads (lenovo_patched_*.img)
+            // We also need the original image for AVB parameter extraction
             val downloadsDir =
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val patchedImage = downloadsDir.listFiles()?.filter {
                 it.name.startsWith("lenovo_patched_") && it.name.endsWith(".img")
             }?.maxByOrNull { it.lastModified() }
 
-            if (patchedImage != null) {
-                signWithAvbtool(ksuApp, patchedImage, targetPartition, onStdout, onStderr)
-            } else {
+            if (patchedImage == null) {
                 onStderr("[lenovo] ERROR: Could not find patched image in Downloads")
                 false
+            } else {
+                // Use the original boot file as reference for AVB params
+                // Rename patched to init_boot.img in work dir
+                val initBootInWork = File(workDir, "init_boot.img")
+                patchedImage.copyTo(initBootInWork, overwrite = true)
+                patchedImage.delete()
+
+                // User needs to provide vbmeta.img — skip for now, use patched only
+                onStdout("[lenovo] Running non-chain AVB signing...")
+                lenovoSignAndFlash(
+                    context = ksuApp,
+                    originalImage = bootFile,
+                    patchedImage = initBootInWork,
+                    vbmetaImage = null,
+                    partition = targetPartition,
+                    ota = ota,
+                    isDirectFlash = false,
+                    onStdout = onStdout,
+                    onStderr = onStderr
+                )
             }
         } else {
-            // Direct install: sign the temp output, then dd flash
-            val patchDir = File(AVB_PATCH_DIR)
-            val patchedImage = File(patchDir, "lenovo_patched_boot.img")
-            if (patchedImage.exists()) {
-                val signed = signWithAvbtool(ksuApp, patchedImage, targetPartition, onStdout, onStderr)
-                if (signed) {
-                    // Flash the signed image with dd
-                    val slotSuffix = withNewRootShell {
-                        val cmd = if (ota) "boot-info slot-suffix --ota" else "boot-info slot-suffix"
-                        val out = newJob().add("${getKsuDaemonPath()} $cmd").to(ArrayList(), null).exec().out
-                        out.filter { it.isNotBlank() }.joinToString("").trim()
-                    }
-                    val bootDevice = "/dev/block/by-name/${targetPartition}${slotSuffix}"
-                    onStdout("[lenovo] Flashing signed image to $bootDevice...")
-                    val ddResult = flashWithIO(
-                        "dd if=${patchedImage.absolutePath} of=$bootDevice",
-                        onStdout, onStderr
-                    )
-                    if (ddResult.isSuccess) {
-                        onStdout("[lenovo] Flash completed successfully!")
-                        if (ota) {
-                            onStdout("[lenovo] OTA mode: device will switch to new slot on next reboot")
-                        }
-                    } else {
-                        onStderr("[lenovo] ERROR: dd flash failed")
-                    }
-                    ddResult.isSuccess
-                } else {
-                    false
-                }
-            } else {
-                onStderr("[lenovo] ERROR: Patched image not found at ${patchedImage.absolutePath}")
-                false
+            // ---- Direct install: read from device, patch, sign, flash ----
+            val slotSuffix = withNewRootShell {
+                val slotCmd = if (ota) "boot-info slot-suffix --ota" else "boot-info slot-suffix"
+                val out = newJob().add("${getKsuDaemonPath()} $slotCmd").to(ArrayList(), null).exec().out
+                out.filter { it.isNotBlank() }.joinToString("").trim()
             }
+
+            // 1. Backup original boot image from device
+            val origBoot = File(workDir, "original_boot.img")
+            val origBootDevice = "/dev/block/by-name/${targetPartition}${slotSuffix}"
+            onStdout("[lenovo] Backing up original: $origBootDevice -> ${origBoot.absolutePath}")
+            val ddOrig = flashWithIO("dd if=$origBootDevice of=${origBoot.absolutePath}",
+                onStdout, onStderr)
+            if (!ddOrig.isSuccess || !origBoot.exists()) {
+                onStderr("[lenovo] ERROR: Failed to backup original boot image")
+                return FlashResult(1, "Failed to backup original boot image", false)
+            }
+
+            // 2. Backup original vbmeta from device
+            val origVbmeta = File(workDir, "vbmeta.img")
+            val vbmetaDevice = "/dev/block/by-name/vbmeta${slotSuffix}"
+            onStdout("[lenovo] Backing up vbmeta: $vbmetaDevice -> ${origVbmeta.absolutePath}")
+            val ddVbmeta = flashWithIO("dd if=$vbmetaDevice of=${origVbmeta.absolutePath}",
+                onStdout, onStderr)
+            if (!ddVbmeta.isSuccess || !origVbmeta.exists()) {
+                onStdout("[lenovo] WARNING: No vbmeta partition found, proceeding without vbmeta rebuild")
+            }
+
+            // 3. Patched image is at /data/local/tmp/lenovo_patched_boot.img
+            //    Rename it to init_boot.img in work dir
+            val patchedFromKsud = File(KSU_WORK_DIR, "lenovo_patched_boot.img")
+            val initBootInWork = File(workDir, "init_boot.img")
+            if (patchedFromKsud.exists()) {
+                patchedFromKsud.copyTo(initBootInWork, overwrite = true)
+                patchedFromKsud.delete()
+            } else {
+                onStderr("[lenovo] ERROR: Patched image not found at ${patchedFromKsud.absolutePath}")
+                return FlashResult(1, "Patched image not found", false)
+            }
+
+            // 4. Sign and flash
+            onStdout("[lenovo] Running non-chain AVB signing...")
+            lenovoSignAndFlash(
+                context = ksuApp,
+                originalImage = origBoot,
+                patchedImage = initBootInWork,
+                vbmetaImage = if (origVbmeta.exists()) origVbmeta else null,
+                partition = targetPartition,
+                ota = ota,
+                isDirectFlash = true,
+                onStdout = onStdout,
+                onStderr = onStderr
+            )
         }
 
         bootFile?.delete()
