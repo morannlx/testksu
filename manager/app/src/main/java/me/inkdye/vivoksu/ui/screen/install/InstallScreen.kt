@@ -55,6 +55,12 @@ fun InstallScreen() {
                 Build.BRAND.orEmpty().contains("iqoo", ignoreCase = true)
         )
     }
+    var enableLenovoMode by rememberSaveable {
+        mutableStateOf(
+            Build.MANUFACTURER.orEmpty().contains("lenovo", ignoreCase = true) ||
+                Build.BRAND.orEmpty().contains("lenovo", ignoreCase = true)
+        )
+    }
 
     val currentKmi by produceState(initialValue = "") { value = getCurrentKmi() }
     val partitions by produceState(initialValue = emptyList()) { value = getAvailablePartitions() }
@@ -106,6 +112,7 @@ fun InstallScreen() {
                         allowShell = allowShell,
                         enableAdb = enableAdb,
                         vivoPatch = enableVivoPatch,
+                        lenovoMode = enableLenovoMode,
                     )
                 )
             )
@@ -171,6 +178,7 @@ fun InstallScreen() {
         allowShell = allowShell,
         enableAdb = enableAdb,
         enableVivoPatch = enableVivoPatch,
+        enableLenovoMode = enableLenovoMode,
     )
     val actions = InstallScreenActions(
         onBack = dropUnlessResumed { navigator.pop() },
@@ -209,6 +217,9 @@ fun InstallScreen() {
         },
         onSelectEnableVivoPatch = {
             enableVivoPatch = it
+        },
+        onSelectEnableLenovoMode = {
+            enableLenovoMode = it
         },
     )
 

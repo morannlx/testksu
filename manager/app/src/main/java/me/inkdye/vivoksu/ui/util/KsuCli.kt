@@ -8,6 +8,7 @@ import android.os.Environment
 import android.os.Parcelable
 import android.os.SystemClock
 import android.provider.OpenableColumns
+import java.io.FileOutputStream
 import android.system.Os
 import android.util.Log
 import com.topjohnwu.superuser.CallbackList
@@ -266,6 +267,172 @@ sealed class LkmSelection : Parcelable {
     data object KmiNone : LkmSelection()
 }
 
+private const val AVB_ASSETS_DIR = "avb"
+private const val PYTHON_ASSETS_DIR = "python_env"
+private const val AVB_WORK_DIR = "/data/local/tmp/ksu_avb"
+private const val PYTHON_WORK_DIR = "/data/local/tmp/ksu_python"
+
+private fun extractAssetDir(context: Context, assetDir: String, targetDir: File) {
+    val assetManager = context.assets
+    val files = assetManager.list(assetDir) ?: return
+    for (name in files) {
+        val subAssets = assetManager.list("$assetDir/$name")
+        if (subAssets != null && subAssets.isNotEmpty()) {
+            // It's a directory
+            val subDir = File(targetDir, name)
+            subDir.mkdirs()
+            extractAssetDir(context, "$assetDir/$name", subDir)
+        } else {
+            // It's a file
+            val outFile = File(targetDir, name)
+            if (!outFile.exists()) {
+                assetManager.open("$assetDir/$name").use { input ->
+                    FileOutputStream(outFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun setupBundledPython(context: Context): String? {
+    val pythonDir = File(PYTHON_WORK_DIR)
+
+    // Extract Python environment if not already present
+    if (!pythonDir.exists() || !File(pythonDir, "python").exists()) {
+        pythonDir.mkdirs()
+        try {
+            extractAssetDir(context, PYTHON_ASSETS_DIR, pythonDir)
+        } catch (e: Exception) {
+            Log.e("KsuCli", "Failed to extract Python environment", e)
+            return null
+        }
+    }
+
+    val pythonBin = File(pythonDir, "python")
+    if (!pythonBin.exists()) return null
+
+    // Set execute permissions via root shell
+    withNewRootShell {
+        newJob().add("chmod 755 ${pythonBin.absolutePath}").exec()
+        // Also chmod all .so files
+        newJob().add("chmod 755 ${pythonDir}/*.so* 2>/dev/null").exec()
+    }
+
+    return pythonBin.absolutePath
+}
+
+private fun copyAvbAssetsToWorkDir(context: Context): File {
+    val workDir = File(AVB_WORK_DIR)
+    workDir.mkdirs()
+
+    val assetNames = listOf("avbtool.py", "testkey_rsa4096.pem", "testkey_rsa2048.pem")
+    for (name in assetNames) {
+        val outFile = File(workDir, name)
+        if (!outFile.exists()) {
+            context.assets.open("$AVB_ASSETS_DIR/$name").use { input ->
+                FileOutputStream(outFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+    }
+    return workDir
+}
+
+private fun parseAvbInfo(infoOutput: String): Pair<String, String>? {
+    val algorithm = Regex("Algorithm:\\s+(\\S+)").find(infoOutput)?.groupValues?.get(1) ?: return null
+    val imageSize = Regex("Image size:\\s+(\\d+)\\s+bytes").find(infoOutput)?.groupValues?.get(1) ?: return null
+    return Pair(algorithm, imageSize)
+}
+
+private fun signWithAvbtool(
+    context: Context,
+    patchedImage: File,
+    partition: String,
+    onStdout: (String) -> Unit,
+    onStderr: (String) -> Unit,
+): Boolean {
+    onStdout("[lenovo] Starting AVB signing for $partition...")
+
+    val pythonBin = setupBundledPython(context)
+    if (pythonBin == null) {
+        onStderr("[lenovo] ERROR: Failed to setup bundled Python environment")
+        return false
+    }
+    onStdout("[lenovo] Using bundled Python: $pythonBin")
+
+    val workDir = copyAvbAssetsToWorkDir(context)
+    val avbtool = File(workDir, "avbtool.py")
+
+    // Build environment prefix: set LD_LIBRARY_PATH and PYTHONHOME for the bundled Python
+    val pythonDir = File(PYTHON_WORK_DIR)
+    val envPrefix = "export LD_LIBRARY_PATH=${pythonDir}:\$LD_LIBRARY_PATH && " +
+        "export PYTHONHOME=${pythonDir} && " +
+        "export PYTHONPATH=${pythonDir}/lib/python3.12 && "
+
+    // Step 1: Get image info
+    onStdout("[lenovo] Step 1: Parsing AVB image info...")
+    val infoResult = flashWithIO(
+        "${envPrefix}${pythonBin} ${avbtool.absolutePath} info_image --image ${patchedImage.absolutePath}",
+        onStdout, onStderr
+    )
+    if (!infoResult.isSuccess) {
+        onStderr("[lenovo] ERROR: Failed to parse AVB image info")
+        return false
+    }
+
+    val infoOutput = infoResult.out.joinToString("\n")
+    val (algorithm, imageSize) = parseAvbInfo(infoOutput)
+        ?: run {
+            onStderr("[lenovo] ERROR: Could not parse algorithm or image size from AVB info")
+            return false
+        }
+    onStdout("[lenovo] Detected algorithm: $algorithm, image size: $imageSize bytes")
+
+    // Step 2: Erase old AVB footer
+    onStdout("[lenovo] Step 2: Erasing old AVB footer...")
+    val eraseResult = flashWithIO(
+        "${envPrefix}${pythonBin} ${avbtool.absolutePath} erase_footer --image ${patchedImage.absolutePath}",
+        onStdout, onStderr
+    )
+    if (!eraseResult.isSuccess) {
+        onStderr("[lenovo] WARNING: Erase footer failed (may be no footer), continuing...")
+    }
+
+    // Step 3: Select key based on algorithm
+    val keyFile = when {
+        algorithm.contains("RSA4096") -> File(workDir, "testkey_rsa4096.pem")
+        algorithm.contains("RSA2048") -> File(workDir, "testkey_rsa2048.pem")
+        else -> {
+            onStderr("[lenovo] ERROR: Unsupported algorithm: $algorithm")
+            return false
+        }
+    }
+    onStdout("[lenovo] Using key: ${keyFile.name}")
+
+    // Step 4: Add new hash footer
+    onStdout("[lenovo] Step 3: Adding AVB hash footer...")
+    val signResult = flashWithIO(
+        "${envPrefix}${pythonBin} ${avbtool.absolutePath} add_hash_footer " +
+            "--image ${patchedImage.absolutePath} " +
+            "--partition_name $partition " +
+            "--partition_size $imageSize " +
+            "--algorithm $algorithm " +
+            "--key ${keyFile.absolutePath} " +
+            "--rollback_index 0",
+        onStdout, onStderr
+    )
+    if (!signResult.isSuccess) {
+        onStderr("[lenovo] ERROR: Failed to add AVB hash footer")
+        return false
+    }
+
+    onStdout("[lenovo] AVB signing completed successfully!")
+    return true
+}
+
 fun installBoot(
     bootUri: Uri?,
     lkm: LkmSelection,
@@ -274,6 +441,7 @@ fun installBoot(
     allowShell: Boolean,
     enableAdb: Boolean,
     vivoPatch: Boolean = false,
+    lenovoMode: Boolean = false,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
 ): FlashResult {
@@ -302,17 +470,24 @@ fun installBoot(
         when {
             useVivoRmvr -> "[manager] vivo mode: vendor_boot rmvr (no LKM injection)"
             useVivoLkm -> "[manager] vivo mode: install vivo-vermagic LKM into ${partition ?: "init_boot"}"
+            lenovoMode -> "[manager] Lenovo mode: patch + AVB sign + flash"
             else -> "[manager] standard patch flow on ${partition ?: "auto"}"
         }
     )
     var cmd = if (useVivoRmvr) "boot-patch-vivo" else "boot-patch"
     cmd += " --magiskboot ${magiskboot.absolutePath}"
 
-    cmd += if (bootFile == null) {
-        // no boot.img, use -f to flash
-        " -f"
+    // Lenovo mode: patch without flash, then sign, then flash manually
+    if (lenovoMode && bootFile == null) {
+        // Direct install with Lenovo mode: output to temp dir for signing
+        val avbWorkDir = File(AVB_WORK_DIR)
+        avbWorkDir.mkdirs()
+        cmd += " -o $avbWorkDir --out-name patched_boot.img"
+    } else if (bootFile == null) {
+        // Standard direct install: flash directly
+        cmd += " -f"
     } else {
-        " -b ${bootFile.absolutePath}"
+        cmd += " -b ${bootFile.absolutePath}"
     }
 
     if (allowShell) {
@@ -362,7 +537,9 @@ fun installBoot(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         cmd += " -o $downloadsDir"
 
-        if (useVivoRmvr) {
+        if (lenovoMode) {
+            cmd += " --out-name lenovo_patched_${System.currentTimeMillis()}.img"
+        } else if (useVivoRmvr) {
             cmd += " --out-name kernelsu_patched_rmvr_${System.currentTimeMillis()}.img"
         } else if (useVivoLkm) {
             cmd += " --out-name kernelsu_patched_vivo_${System.currentTimeMillis()}.img"
@@ -375,6 +552,74 @@ fun installBoot(
 
     val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
     Log.i("KernelSU", "install boot result: ${result.isSuccess}")
+
+    // Lenovo mode: sign the patched image and flash manually
+    if (lenovoMode && result.isSuccess) {
+        val targetPartition = partition ?: "boot"
+        val signedOk = if (bootFile != null) {
+            // File mode: sign the output in Downloads
+            val downloadsDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val patchedImage = downloadsDir.listFiles()?.filter {
+                it.name.startsWith("lenovo_patched_") && it.name.endsWith(".img")
+            }?.maxByOrNull { it.lastModified() }
+
+            if (patchedImage != null) {
+                signWithAvbtool(ksuApp, patchedImage, targetPartition, onStdout, onStderr)
+            } else {
+                onStderr("[lenovo] ERROR: Could not find patched image in Downloads")
+                false
+            }
+        } else {
+            // Direct install: sign the temp output, then dd flash
+            val avbWorkDir = File(AVB_WORK_DIR)
+            val patchedImage = File(avbWorkDir, "patched_boot.img")
+            if (patchedImage.exists()) {
+                val signed = signWithAvbtool(ksuApp, patchedImage, targetPartition, onStdout, onStderr)
+                if (signed) {
+                    // Flash the signed image with dd
+                    val slotSuffix = withNewRootShell {
+                        val cmd = if (ota) "boot-info slot-suffix --ota" else "boot-info slot-suffix"
+                        val out = newJob().add("${getKsuDaemonPath()} $cmd").to(ArrayList(), null).exec().out
+                        out.filter { it.isNotBlank() }.joinToString("").trim()
+                    }
+                    val bootDevice = "/dev/block/by-name/${targetPartition}${slotSuffix}"
+                    onStdout("[lenovo] Flashing signed image to $bootDevice...")
+                    val ddResult = flashWithIO(
+                        "dd if=${patchedImage.absolutePath} of=$bootDevice",
+                        onStdout, onStderr
+                    )
+                    if (ddResult.isSuccess) {
+                        onStdout("[lenovo] Flash completed successfully!")
+                        if (ota) {
+                            onStdout("[lenovo] OTA mode: device will switch to new slot on next reboot")
+                        }
+                    } else {
+                        onStderr("[lenovo] ERROR: dd flash failed")
+                    }
+                    ddResult.isSuccess
+                } else {
+                    false
+                }
+            } else {
+                onStderr("[lenovo] ERROR: Patched image not found at ${patchedImage.absolutePath}")
+                false
+            }
+        }
+
+        bootFile?.delete()
+        lkmFile?.delete()
+
+        val showReboot = bootUri == null && signedOk
+        if (showReboot) {
+            install()
+        }
+        return FlashResult(
+            if (signedOk) 0 else 1,
+            if (signedOk) "" else "AVB signing or flashing failed",
+            showReboot
+        )
+    }
 
     bootFile?.delete()
     lkmFile?.delete()

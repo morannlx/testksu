@@ -206,6 +206,24 @@ internal fun InstallScreenMaterial(
                             )
                         }
                     }
+                    add {
+                        AnimatedVisibility(
+                            uiState.advancedOptionsShown,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            SegmentedCheckboxItem(
+                                title = stringResource(R.string.lenovo_mode),
+                                summary = if (uiState.enableLenovoMode) {
+                                    stringResource(R.string.lenovo_mode_summary_on)
+                                } else {
+                                    stringResource(R.string.lenovo_mode_summary_off)
+                                },
+                                checked = uiState.enableLenovoMode,
+                                onCheckedChange = actions.onSelectEnableLenovoMode,
+                            )
+                        }
+                    }
                 }
             )
             Button(

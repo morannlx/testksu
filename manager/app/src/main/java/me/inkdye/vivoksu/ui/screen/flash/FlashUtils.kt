@@ -78,6 +78,7 @@ sealed class FlashIt : Parcelable {
         val allowShell: Boolean = false,
         val enableAdb: Boolean = false,
         val vivoPatch: Boolean = false,
+        val lenovoMode: Boolean = false,
     ) : FlashIt()
 
     @Parcelize
@@ -119,6 +120,7 @@ fun flashIt(
             flashIt.allowShell,
             flashIt.enableAdb,
             flashIt.vivoPatch,
+            flashIt.lenovoMode,
             onStdout,
             onStderr
         )

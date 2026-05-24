@@ -237,6 +237,16 @@ internal fun InstallScreenMiuix(
                                     },
                                     onCheckedChange = actions.onSelectEnableVivoPatch
                                 )
+                                CheckboxPreference(
+                                    title = stringResource(R.string.lenovo_mode),
+                                    checked = uiState.enableLenovoMode,
+                                    summary = if (uiState.enableLenovoMode) {
+                                        stringResource(R.string.lenovo_mode_summary_on)
+                                    } else {
+                                        stringResource(R.string.lenovo_mode_summary_off)
+                                    },
+                                    onCheckedChange = actions.onSelectEnableLenovoMode
+                                )
                             }
                         }
                     }

@@ -228,6 +228,9 @@
     <string name="enable_adb_summary">強制開啟 USB 偵錯並停用 adb 驗證，非必要請勿啟用</string>
     <string name="advanced_options">進階選項</string>
     <string name="expand">展開</string>
+    <string name="lenovo_mode">Lenovo免解模式</string>
+    <string name="lenovo_mode_summary_on">開啟：修補 + AVB簽名 + 刷入（需要裝置安裝Python3）</string>
+    <string name="lenovo_mode_summary_off">關閉：標準修補流程</string>
     <string name="download_channel_name">模組下載</string>
     <string name="download_progress_title">正在下載 %s</string>
     <string name="download_complete_title">下載完成</string>

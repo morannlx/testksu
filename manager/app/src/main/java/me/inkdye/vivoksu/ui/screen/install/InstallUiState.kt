@@ -17,6 +17,7 @@ internal data class InstallUiState(
     val allowShell: Boolean,
     val enableAdb: Boolean,
     val enableVivoPatch: Boolean,
+    val enableLenovoMode: Boolean,
 )
 
 @Immutable
@@ -32,4 +33,5 @@ internal data class InstallScreenActions(
     val onSelectAllowShell: (Boolean) -> Unit,
     val onSelectEnableAdb: (Boolean) -> Unit,
     val onSelectEnableVivoPatch: (Boolean) -> Unit,
+    val onSelectEnableLenovoMode: (Boolean) -> Unit,
 )
