@@ -465,15 +465,12 @@ private fun lenovoSignAndFlash(
     // For non-chain mode: use algorithm=NONE with salt from original image
     onStdout("[lenovo] Step 3: Adding hash footer to patched image...")
     val signAlgorithm = "NONE"  // Non-chain mode: sha256 hash only
-    val addFooterArgs = arrayOf(
-        avbtool, "add_hash_footer",
-        "--image", patchedImage.absolutePath,
-        "--partition_name", partition,
-        "--partition_size", partitionSize,
-        "--algorithm", signAlgorithm
-    )
-    val addFooterResult = runAvbtool(launcherPath, *addFooterArgs,
-        onStdout = onStdout, onStderr = onStderr)
+    val addFooterCmd = "sh $launcherPath $avbtool add_hash_footer " +
+        "--image ${patchedImage.absolutePath} " +
+        "--partition_name $partition " +
+        "--partition_size $partitionSize " +
+        "--algorithm $signAlgorithm"
+    val addFooterResult = flashWithIO(addFooterCmd, onStdout, onStderr)
     if (!addFooterResult.isSuccess) {
         onStderr("[lenovo] ERROR: Failed to add hash footer")
         return false
@@ -497,20 +494,17 @@ private fun lenovoSignAndFlash(
                 else -> File(workDir, "testkey_rsa4096.pem")
             }
             val newVbmeta = File(KSU_WORK_DIR, "vbmeta_new.img")
-            val rebuildArgs = arrayOf(
-                avbtool, "make_vbmeta_image",
-                "--output", newVbmeta.absolutePath,
-                "--algorithm", vbmetaAlgorithm,
-                "--key", vbmetaKeyFile.absolutePath,
-                "--rollback_index", vbmetaRollback,
-                "--flags", vbmetaFlags,
-                "--rollback_index_location", "0",
-                "--padding_size", "4096",
-                "--include_descriptors_from_image", vbmetaImage.absolutePath,
-                "--include_descriptors_from_image", patchedImage.absolutePath
-            )
-            val rebuildResult = runAvbtool(launcherPath, *rebuildArgs,
-                onStdout = onStdout, onStderr = onStderr)
+            val rebuildCmd = "sh $launcherPath $avbtool make_vbmeta_image " +
+                "--output ${newVbmeta.absolutePath} " +
+                "--algorithm $vbmetaAlgorithm " +
+                "--key ${vbmetaKeyFile.absolutePath} " +
+                "--rollback_index $vbmetaRollback " +
+                "--flags $vbmetaFlags " +
+                "--rollback_index_location 0 " +
+                "--padding_size 4096 " +
+                "--include_descriptors_from_image ${vbmetaImage.absolutePath} " +
+                "--include_descriptors_from_image ${patchedImage.absolutePath}"
+            val rebuildResult = flashWithIO(rebuildCmd, onStdout, onStderr)
             if (rebuildResult.isSuccess && newVbmeta.exists()) {
                 // Replace original vbmeta with rebuilt one
                 newVbmeta.copyTo(vbmetaImage, overwrite = true)
