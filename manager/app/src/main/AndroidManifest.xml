@@ -23,7 +23,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.KernelSU"
-        android:zygotePreloadName="me.weishu.kernelsu.magica.AppZygotePreload">
+        android:zygotePreloadName="me.inkdye.vivoksu.magica.AppZygotePreload">
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -86,7 +86,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
             <intent-filter>
-                <action android:name="me.weishu.kernelsu.magica.LAUNCH" />
+                <action android:name="me.inkdye.vivoksu.magica.LAUNCH" />
             </intent-filter>
         </receiver>
     </application>
