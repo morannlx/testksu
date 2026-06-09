@@ -29,9 +29,6 @@ data class HomeUiState(
     val isFullFeatured: Boolean
         get() = isManager && !requiresNewKernel && isRootAvailable
 
-    val showGkiWarning: Boolean
-        get() = ksuVersion != null && lkmMode == false
-
     val showRequireKernelWarning: Boolean
         get() = isManager && requiresNewKernel
 
