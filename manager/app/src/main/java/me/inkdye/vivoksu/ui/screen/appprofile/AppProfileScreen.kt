@@ -1,6 +1,7 @@
 package me.inkdye.vivoksu.ui.screen.appprofile
 
 import android.widget.Toast
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -21,7 +22,6 @@ import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
 import me.inkdye.vivoksu.ui.navigation3.LocalNavigator
 import me.inkdye.vivoksu.ui.navigation3.Route
-import me.inkdye.vivoksu.ui.util.LocalSnackbarHost
 import me.inkdye.vivoksu.ui.util.forceStopApp
 import me.inkdye.vivoksu.ui.util.getSepolicy
 import me.inkdye.vivoksu.ui.util.launchApp
@@ -35,7 +35,7 @@ fun AppProfileScreen(uid: Int) {
     val uiMode = LocalUiMode.current
     val navigator = LocalNavigator.current
     val context = LocalContext.current
-    val snackbarHost = LocalSnackbarHost.current
+    val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val viewModel: SuperUserViewModel = viewModel()
     val appGroupState = remember(uid) {
@@ -141,6 +141,7 @@ fun AppProfileScreen(uid: Int) {
         UiMode.Material -> AppProfileScreenMaterial(
             state = state,
             actions = actions,
+            snackBarHost = snackbarHost,
         )
     }
 }

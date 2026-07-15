@@ -118,9 +118,8 @@ suspend fun getFeaturePersistValue(feature: String): Long? = withContext(Dispatc
 
 fun install() {
     val start = SystemClock.elapsedRealtime()
-    val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so").absolutePath
     val libadbroot = File(ksuApp.applicationInfo.nativeLibraryDir, "libadbroot.so").absolutePath
-    val result = execKsud("install --magiskboot $magiskboot --libadbroot $libadbroot", true)
+    val result = execKsud("install --libadbroot $libadbroot --data-path ${ksuApp.applicationInfo.deviceProtectedDataDir}", true)
     Log.w(TAG, "install result: $result, cost: ${SystemClock.elapsedRealtime() - start}ms")
 }
 
@@ -241,16 +240,14 @@ fun runModuleAction(
 fun restoreBoot(
     onStdout: (String) -> Unit, onStderr: (String) -> Unit
 ): FlashResult {
-    val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
-    val result = flashWithIO("${getKsuDaemonPath()} boot-restore -f --magiskboot $magiskboot", onStdout, onStderr)
+    val result = flashWithIO("${getKsuDaemonPath()} boot-restore -f", onStdout, onStderr)
     return FlashResult(result)
 }
 
 fun uninstallPermanently(
     onStdout: (String) -> Unit, onStderr: (String) -> Unit
 ): FlashResult {
-    val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
-    val result = flashWithIO("${getKsuDaemonPath()} uninstall --magiskboot $magiskboot --package-name ${BuildConfig.APPLICATION_ID}", onStdout, onStderr)
+    val result = flashWithIO("${getKsuDaemonPath()} uninstall --package-name ${BuildConfig.APPLICATION_ID}", onStdout, onStderr)
     return FlashResult(result)
 }
 
@@ -273,6 +270,7 @@ fun installBoot(
     partition: String?,
     allowShell: Boolean,
     enableAdb: Boolean,
+    forceBackup: Boolean,
     vivoPatch: Boolean = false,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
@@ -290,12 +288,6 @@ fun installBoot(
         }
     }
 
-    val magiskboot = File(ksuApp.applicationInfo.nativeLibraryDir, "libmagiskboot.so")
-
-    // vivo dual-path:
-    //   * vivo ON + vendor_boot  -> boot-patch-vivo  (rmvr only, NO LKM)
-    //   * vivo ON + init_boot/boot -> boot-patch with --kmi <ver>_vivo (vivo vermagic LKM)
-    //   * vivo OFF               -> boot-patch (standard flow)
     val useVivoRmvr = vivoPatch && partition == "vendor_boot"
     val useVivoLkm = vivoPatch && !useVivoRmvr
     onStdout(
@@ -305,8 +297,8 @@ fun installBoot(
             else -> "[manager] standard patch flow on ${partition ?: "auto"}"
         }
     )
+
     var cmd = if (useVivoRmvr) "boot-patch-vivo" else "boot-patch"
-    cmd += " --magiskboot ${magiskboot.absolutePath}"
 
     cmd += if (bootFile == null) {
         // no boot.img, use -f to flash
@@ -327,6 +319,10 @@ fun installBoot(
         cmd += " -u"
     }
 
+    if (forceBackup) {
+        cmd += " --backup"
+    }
+
     var lkmFile: File? = null
     when (lkm) {
         is LkmSelection.LkmUri -> {
@@ -342,7 +338,6 @@ fun installBoot(
         }
 
         is LkmSelection.KmiString -> {
-            // vivo LKM path: auto-append _vivo suffix if not already present
             val selectedKmi = if (useVivoLkm && !lkm.value.endsWith("_vivo")) {
                 "${lkm.value}_vivo"
             } else {
@@ -361,7 +356,6 @@ fun installBoot(
         val downloadsDir =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         cmd += " -o $downloadsDir"
-
         if (useVivoRmvr) {
             cmd += " --out-name kernelsu_patched_rmvr_${System.currentTimeMillis()}.img"
         } else if (useVivoLkm) {

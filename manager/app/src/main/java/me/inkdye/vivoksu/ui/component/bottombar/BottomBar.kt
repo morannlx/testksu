@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -12,13 +13,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import top.yukonga.miuix.kmp.blur.Backdrop
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
+import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import kotlin.math.abs
 
@@ -84,25 +85,32 @@ fun rememberMainPagerState(
     }
 }
 
+@Immutable
+data class ModuleBadgeState(
+    val enabledCount: Int = 0,
+    val updatableCount: Int = 0,
+)
+
 @Composable
 fun BottomBar(
     blurBackdrop: LayerBackdrop?,
     backdrop: Backdrop,
+    moduleBadge: ModuleBadgeState,
     modifier: Modifier = Modifier,
 ) {
     when (LocalUiMode.current) {
-        UiMode.Miuix -> BottomBarMiuix(blurBackdrop, backdrop, modifier)
-        UiMode.Material -> BottomBarMaterial()
+        UiMode.Miuix -> BottomBarMiuix(blurBackdrop, backdrop, moduleBadge, modifier)
+        UiMode.Material -> BottomBarMaterial(moduleBadge)
     }
 }
 
 @Composable
 fun SideRail(
-    blurBackdrop: LayerBackdrop?,
+    moduleBadge: ModuleBadgeState,
     modifier: Modifier = Modifier,
 ) {
     when (LocalUiMode.current) {
-        UiMode.Miuix -> NavigationRailMiuix(blurBackdrop, modifier)
-        UiMode.Material -> NavigationRailMaterial(modifier)
+        UiMode.Miuix -> NavigationRailMiuix(moduleBadge, modifier)
+        UiMode.Material -> NavigationRailMaterial(moduleBadge, modifier)
     }
 }

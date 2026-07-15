@@ -15,13 +15,15 @@ import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FlexibleBottomAppBar
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import me.inkdye.vivoksu.Natives
@@ -29,9 +31,8 @@ import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.LocalMainPagerState
 import me.inkdye.vivoksu.ui.util.rootAvailable
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun BottomBarMaterial() {
+fun BottomBarMaterial(moduleBadge: ModuleBadgeState) {
     val isManager = try { Natives.isManager } catch (_: Throwable) { false }
     val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
     val mainPagerState = LocalMainPagerState.current
@@ -45,14 +46,15 @@ fun BottomBarMaterial() {
         Triple(R.string.settings, Icons.Filled.Settings, Icons.Outlined.Settings)
     )
 
-    FlexibleBottomAppBar(
+    ShortNavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         windowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout).only(
             WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
         )
     ) {
         items.forEachIndexed { index, (label, selectedIcon, unselectedIcon) ->
             val selected = mainPagerState.selectedPage == index
-            NavigationBarItem(
+            ShortNavigationBarItem(
                 selected = selected,
                 onClick = {
                     if (!selected) {
@@ -60,9 +62,10 @@ fun BottomBarMaterial() {
                     }
                 },
                 icon = {
-                    Icon(
-                        if (selected) selectedIcon else unselectedIcon,
-                        stringResource(label)
+                    NavigationIconWithBadge(
+                        icon = if (selected) selectedIcon else unselectedIcon,
+                        contentDescription = stringResource(label),
+                        badge = if (index == BottomBarDestination.Module.ordinal) moduleBadge else null,
                     )
                 },
                 label = {
@@ -74,5 +77,37 @@ fun BottomBarMaterial() {
                 }
             )
         }
+    }
+}
+
+@Composable
+internal fun NavigationIconWithBadge(
+    icon: ImageVector,
+    contentDescription: String?,
+    badge: ModuleBadgeState?,
+) {
+    if (badge != null && (badge.updatableCount > 0 || badge.enabledCount > 0)) {
+        BadgedBox(
+            badge = {
+                // Pending updates take priority: default badge color (red) with the updatable
+                // count; otherwise the theme-colored badge shows the enabled count.
+                if (badge.updatableCount > 0) {
+                    Badge {
+                        Text(badge.updatableCount.toString())
+                    }
+                } else {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ) {
+                        Text(badge.enabledCount.toString())
+                    }
+                }
+            }
+        ) {
+            Icon(icon, contentDescription)
+        }
+    } else {
+        Icon(icon, contentDescription)
     }
 }

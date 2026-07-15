@@ -1,10 +1,8 @@
 package me.inkdye.vivoksu.ui.util
 
 import android.net.Uri
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import me.inkdye.vivoksu.ksuApp
 import me.inkdye.vivoksu.ui.util.module.LatestVersionInfo
 import okhttp3.Request
@@ -13,7 +11,7 @@ import okhttp3.Request
  * @author weishu
  * @date 2023/6/22.
  */
-fun download(
+suspend fun download(
     url: String,
     fileName: String,
     onDownloaded: (Uri) -> Unit = {},
@@ -29,22 +27,18 @@ fun download(
         onCompleted = onDownloaded,
     )
 
-    CoroutineScope(Dispatchers.Main).launch {
-        DownloadManager.downloads.collect { map ->
-            val state = map[downloadId] ?: return@collect
-            onProgress(state.progress)
-            if (state.status == DownloadManager.Status.COMPLETED ||
-                state.status == DownloadManager.Status.FAILED
-            ) {
-                cancel()
-            }
+    DownloadManager.downloads
+        .onEach { map -> map[downloadId]?.let { onProgress(it.progress) } }
+        .first { map ->
+            val status = map[downloadId]?.status
+            status == DownloadManager.Status.COMPLETED ||
+                status == DownloadManager.Status.FAILED
         }
-    }
 }
 
 fun checkNewVersion(): LatestVersionInfo {
     if (!isNetworkAvailable(ksuApp)) return LatestVersionInfo()
-    val url = "https://api.github.com/repos/tiann/KernelSU/releases/latest"
+    val url = "https://api.github.com/repos/morannlx/testksu/releases/latest"
     // default null value if failed
     val defaultValue = LatestVersionInfo()
     runCatching {
