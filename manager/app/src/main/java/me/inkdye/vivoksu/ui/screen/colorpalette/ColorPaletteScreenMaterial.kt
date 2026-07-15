@@ -40,7 +40,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.MenuOpen
 import androidx.compose.material.icons.filled.Brightness1
 import androidx.compose.material.icons.filled.Brightness3
@@ -50,25 +49,18 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DesignServices
+import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -81,7 +73,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -90,16 +81,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
-import com.materialkolor.rememberDynamicColorScheme
 import me.inkdye.vivoksu.R
+import me.inkdye.vivoksu.ui.component.material.ExpressiveScaffold
+import me.inkdye.vivoksu.ui.component.material.ExpressiveToggleButton
 import me.inkdye.vivoksu.ui.component.material.SegmentedColumn
 import me.inkdye.vivoksu.ui.component.material.SegmentedDropdownItem
 import me.inkdye.vivoksu.ui.component.material.SegmentedSwitchItem
 import me.inkdye.vivoksu.ui.component.material.TonalCard
+import me.inkdye.vivoksu.ui.component.material.TopBarBackButton
+import me.inkdye.vivoksu.ui.component.material.expressiveTopAppBarColors
 import me.inkdye.vivoksu.ui.theme.ColorMode
 import me.inkdye.vivoksu.ui.theme.keyColorOptions
+import me.inkdye.vivoksu.ui.theme.rememberKernelSUColorScheme
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ColorPaletteScreenMaterial(
     state: ColorPaletteUiState,
@@ -113,23 +107,14 @@ fun ColorPaletteScreenMaterial(
     val colorSpec = state.currentColorSpec
     val haptic = LocalHapticFeedback.current
 
-    LaunchedEffect(Unit) {
-        scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
-    }
-
-    Scaffold(
+    ExpressiveScaffold(
         topBar = {
             LargeFlexibleTopAppBar(
                 navigationIcon = {
-                    IconButton(
-                        onClick = actions.onBack
-                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                    TopBarBackButton(onClick = actions.onBack)
                 },
                 title = { Text(stringResource(R.string.settings_theme)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                ),
+                colors = expressiveTopAppBarColors(),
                 windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
                 scrollBehavior = scrollBehavior
             )
@@ -147,9 +132,11 @@ fun ColorPaletteScreenMaterial(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val isDark = currentColorMode.isDark || currentColorMode.isSystem && isSystemInDarkTheme()
+            val isAmoled = currentColorMode.isAmoled
             ThemePreviewCard(
                 keyColor = currentKeyColor,
                 isDark = isDark,
+                isAmoled = isAmoled,
                 paletteStyle = colorStyle,
                 colorSpec = colorSpec,
             )
@@ -166,6 +153,7 @@ fun ColorPaletteScreenMaterial(
                         color = Color.Unspecified,
                         isSelected = currentKeyColor == 0,
                         isDark = isDark,
+                        isAmoled = isAmoled,
                         paletteStyle = colorStyle,
                         colorSpec = colorSpec,
                         onClick = {
@@ -179,6 +167,7 @@ fun ColorPaletteScreenMaterial(
                         color = Color(color),
                         isSelected = currentKeyColor == color,
                         isDark = isDark,
+                        isAmoled = isAmoled,
                         paletteStyle = colorStyle,
                         colorSpec = colorSpec,
                         onClick = {
@@ -207,11 +196,11 @@ fun ColorPaletteScreenMaterial(
                         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
                     ) {
                         rowOptions.forEachIndexed { index, (modes, label) ->
-                            ToggleButton(
+                            ExpressiveToggleButton(
                                 checked = currentColorMode in modes,
                                 onCheckedChange = {
                                     if (it) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                         actions.onSetColorMode(modes.first())
                                     }
                                 },
@@ -269,6 +258,21 @@ fun ColorPaletteScreenMaterial(
                     )
                 )
 
+                SegmentedColumn(
+                    modifier = Modifier.padding(top = 4.dp),
+                    content = listOf(
+                        {
+                            SegmentedSwitchItem(
+                                icon = Icons.Rounded.Pin,
+                                title = stringResource(id = R.string.settings_navigation_badge),
+                                summary = stringResource(id = R.string.settings_navigation_badge_summary),
+                                checked = uiState.enableNavigationBadge,
+                                onCheckedChange = actions.onSetEnableNavigationBadge
+                            )
+                        }
+                    )
+                )
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     SegmentedColumn(
                         modifier = Modifier.padding(top = 4.dp),
@@ -314,7 +318,7 @@ fun ColorPaletteScreenMaterial(
                                 Text(
                                     text = stringResource(id = R.string.settings_page_scale_summary),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.outline
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Text(
@@ -341,53 +345,35 @@ fun ColorPaletteScreenMaterial(
 }
 
 @SuppressLint("ConfigurationScreenWidthHeight")
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ThemePreviewCard(
     keyColor: Int,
     isDark: Boolean,
+    isAmoled: Boolean = false,
     paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
-    colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2021,
+    colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
 ) {
-    val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.toFloat()
     val screenHeight = configuration.screenHeightDp.toFloat()
     val screenRatio = screenWidth / screenHeight
-    val dynamicColor = keyColor == 0
 
-    val colorScheme = if (dynamicColor) {
-        val baseScheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        rememberDynamicColorScheme(
-            seedColor = Color.Unspecified,
-            isDark = isDark,
-            style = paletteStyle,
-            specVersion = colorSpec,
-            primary = baseScheme.primary,
-            secondary = baseScheme.secondary,
-            tertiary = baseScheme.tertiary,
-            neutral = baseScheme.surface,
-            neutralVariant = baseScheme.surfaceVariant,
-            error = baseScheme.error
-        )
-    } else {
-        rememberDynamicColorScheme(
-            seedColor = Color(keyColor),
-            isDark = isDark,
-            style = paletteStyle,
-            specVersion = colorSpec,
-        )
-
-    }
+    val colorScheme = rememberKernelSUColorScheme(
+        seedColor = if (keyColor == 0) Color.Unspecified else Color(keyColor),
+        isDark = isDark,
+        isAmoled = isAmoled,
+        paletteStyle = paletteStyle,
+        colorSpec = colorSpec,
+    )
 
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.4f)
                 .aspectRatio(screenRatio),
-            color = colorScheme.background,
+            color = colorScheme.surfaceContainer,
             shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            border = BorderStroke(1.dp, color = colorScheme.outlineVariant)
         ) {
             Column {
                 // top bar
@@ -418,41 +404,44 @@ private fun ThemePreviewCard(
                     contentAlignment = Alignment.TopStart
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         TonalCard(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            containerColor = colorScheme.secondaryContainer,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(40.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(8.dp),
                             content = { }
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             TonalCard(
+                                containerColor = colorScheme.surfaceBright,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(32.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 content = { }
                             )
                             TonalCard(
+                                containerColor = colorScheme.surfaceBright,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(32.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 content = { }
                             )
                         }
                         TonalCard(
+                            containerColor = colorScheme.surfaceBright,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(96.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(8.dp),
                             content = { }
                         )
                     }
@@ -485,34 +474,19 @@ private fun ColorButtonMaterial(
     color: Color,
     isSelected: Boolean,
     isDark: Boolean,
+    isAmoled: Boolean = false,
     paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
-    colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2021,
+    colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val colorScheme = if (color == Color.Unspecified) {
-        val baseScheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        rememberDynamicColorScheme(
-            seedColor = Color.Unspecified,
-            isDark = isDark,
-            style = paletteStyle,
-            specVersion = colorSpec,
-            primary = baseScheme.primary,
-            secondary = baseScheme.secondary,
-            tertiary = baseScheme.tertiary,
-            neutral = baseScheme.surface,
-            neutralVariant = baseScheme.surfaceVariant,
-            error = baseScheme.error
-        )
-    } else {
-        rememberDynamicColorScheme(
-            seedColor = color,
-            isDark = isDark,
-            style = paletteStyle,
-            specVersion = colorSpec,
-        )
-    }
+    val colorScheme = rememberKernelSUColorScheme(
+        seedColor = color,
+        isDark = isDark,
+        isAmoled = isAmoled,
+        paletteStyle = paletteStyle,
+        colorSpec = colorSpec,
+    )
 
     Surface(
         onClick = {

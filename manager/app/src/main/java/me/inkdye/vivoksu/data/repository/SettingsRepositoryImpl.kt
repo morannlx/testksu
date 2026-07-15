@@ -12,11 +12,18 @@ import me.inkdye.vivoksu.Natives
 import me.inkdye.vivoksu.ksuApp
 import me.inkdye.vivoksu.magica.BootCompletedReceiver
 import me.inkdye.vivoksu.ui.UiMode
+import me.inkdye.vivoksu.ui.screen.modulerepo.RepoSort
 import me.inkdye.vivoksu.ui.util.execKsud
 import me.inkdye.vivoksu.ui.util.getFeaturePersistValue
 import me.inkdye.vivoksu.ui.util.getFeatureStatus
+import java.security.SecureRandom
 
 class SettingsRepositoryImpl : SettingsRepository {
+
+    private companion object {
+        private const val INTENT_TOKEN_KEY = "intent_token"
+        private val secureRandom = SecureRandom()
+    }
 
     private val prefs by lazy {
         ksuApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -51,7 +58,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         set(value) = prefs.edit { putString("color_style", value) }
 
     override var colorSpec: String
-        get() = prefs.getString("color_spec", ColorSpec.SpecVersion.Default.name) ?: ColorSpec.SpecVersion.Default.name
+        get() = prefs.getString("color_spec", ColorSpec.SpecVersion.SPEC_2025.name) ?: ColorSpec.SpecVersion.SPEC_2025.name
         set(value) = prefs.edit { putString("color_spec", value) }
 
     override var enablePredictiveBack: Boolean
@@ -70,6 +77,10 @@ class SettingsRepositoryImpl : SettingsRepository {
         get() = prefs.getBoolean("enable_floating_bottom_bar_blur", false)
         set(value) = prefs.edit { putBoolean("enable_floating_bottom_bar_blur", value) }
 
+    override var enableNavigationBadge: Boolean
+        get() = prefs.getBoolean("enable_navigation_badge", true)
+        set(value) = prefs.edit { putBoolean("enable_navigation_badge", value) }
+
     override var pageScale: Float
         get() = prefs.getFloat("page_scale", 1.0f)
         set(value) = prefs.edit { putFloat("page_scale", value) }
@@ -77,6 +88,34 @@ class SettingsRepositoryImpl : SettingsRepository {
     override var enableWebDebugging: Boolean
         get() = prefs.getBoolean("enable_web_debugging", false)
         set(value) = prefs.edit { putBoolean("enable_web_debugging", value) }
+
+    override var moduleSortEnabledFirst: Boolean
+        get() = prefs.getBoolean("module_sort_enabled_first", false)
+        set(value) = prefs.edit { putBoolean("module_sort_enabled_first", value) }
+
+    override var moduleSortActionFirst: Boolean
+        get() = prefs.getBoolean("module_sort_action_first", false)
+        set(value) = prefs.edit { putBoolean("module_sort_action_first", value) }
+
+    override var moduleRepoSortOrder: Int
+        get() = prefs.getInt("module_repo_sort_order", RepoSort.UPDATED.ordinal)
+        set(value) = prefs.edit { putInt("module_repo_sort_order", value) }
+
+    override var superuserShowSystemApps: Boolean
+        get() = prefs.getBoolean("show_system_apps", false)
+        set(value) = prefs.edit { putBoolean("show_system_apps", value) }
+
+    override var superuserShowOnlyPrimaryUserApps: Boolean
+        get() = prefs.getBoolean("show_only_primary_user_apps", false)
+        set(value) = prefs.edit { putBoolean("show_only_primary_user_apps", value) }
+
+    override var superuserSortOption: Int
+        get() = prefs.getInt("superuser_sort_option", 0)
+        set(value) = prefs.edit { putInt("superuser_sort_option", value) }
+
+    override var suLogFilters: Set<String>?
+        get() = prefs.getStringSet("sulog_filters", null)?.toSet()
+        set(filters) = prefs.edit { putStringSet("sulog_filters", filters) }
 
     override var autoJailbreak: Boolean
         get() = prefs.getBoolean("auto_jailbreak", false)
@@ -94,6 +133,16 @@ class SettingsRepositoryImpl : SettingsRepository {
                 putBoolean("auto_jailbreak", value)
             }
         }
+
+    override val intentToken: String
+        get() {
+        val existing = prefs.getString(INTENT_TOKEN_KEY, null)
+        if (!existing.isNullOrBlank()) return existing
+        val token = ByteArray(32).also(secureRandom::nextBytes)
+            .joinToString(separator = "") { "%02x".format(it) }
+        prefs.edit { putString(INTENT_TOKEN_KEY, token) }
+        return token
+    }
 
     override suspend fun getSuCompatStatus(): String = getFeatureStatus("su_compat")
 

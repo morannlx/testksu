@@ -53,7 +53,7 @@ jobs:
 
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     # vivo vermagic injection: vivo GKI kernels require "vivo" token in vermagic
     - name: Inject Vivo vermagic

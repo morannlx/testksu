@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.dropUnlessResumed
 import me.inkdye.vivoksu.R
+import me.inkdye.vivoksu.toOrdinalList
+import me.inkdye.vivoksu.toRootProfileFlags
 import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
 import me.inkdye.vivoksu.ui.navigation3.LocalNavigator
@@ -120,6 +122,7 @@ fun TemplateEditorScreen(template: TemplateViewModel.TemplateInfo, readOnly: Boo
                     context = profile.context,
                     namespace = profile.namespace,
                     rules = profile.rules.split("\n"),
+                    flags = profile.flags.toRootProfileFlags().toOrdinalList(),
                 )
             )
         },

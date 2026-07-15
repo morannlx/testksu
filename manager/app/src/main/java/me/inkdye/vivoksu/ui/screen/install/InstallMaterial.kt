@@ -1,11 +1,7 @@
 package me.inkdye.vivoksu.ui.screen.install
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -14,28 +10,25 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
@@ -45,11 +38,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.component.dialog.rememberConfirmDialog
+import me.inkdye.vivoksu.ui.component.material.ExpressiveScaffold
 import me.inkdye.vivoksu.ui.component.material.SegmentedCheckboxItem
 import me.inkdye.vivoksu.ui.component.material.SegmentedColumn
 import me.inkdye.vivoksu.ui.component.material.SegmentedDropdownItem
 import me.inkdye.vivoksu.ui.component.material.SegmentedListItem
 import me.inkdye.vivoksu.ui.component.material.SegmentedRadioItem
+import me.inkdye.vivoksu.ui.component.material.SnackBarHost
+import me.inkdye.vivoksu.ui.component.material.TopBarBackButton
+import me.inkdye.vivoksu.ui.component.material.expressiveTopAppBarColors
 import me.inkdye.vivoksu.ui.util.LkmSelection
 
 /**
@@ -60,20 +57,18 @@ import me.inkdye.vivoksu.ui.util.LkmSelection
 internal fun InstallScreenMaterial(
     uiState: InstallUiState,
     actions: InstallScreenActions,
+    snackBarHost: SnackbarHostState,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    LaunchedEffect(Unit) {
-        scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
-    }
-
-    Scaffold(
+    ExpressiveScaffold(
         topBar = {
             TopBar(
                 onBack = actions.onBack,
                 scrollBehavior = scrollBehavior,
             )
         },
+        snackbarHost = { SnackBarHost(hostState = snackBarHost, modifier = Modifier.safeDrawingPadding()) },
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Column(
@@ -81,7 +76,8 @@ internal fun InstallScreenMaterial(
                 .padding(innerPadding)
                 .fillMaxHeight()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(13.dp)
         ) {
             SelectInstallMethod(
                 state = uiState,
@@ -90,7 +86,7 @@ internal fun InstallScreenMaterial(
             )
 
             SegmentedColumn(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
                 content = buildList {
                     if (uiState.displayPartitions.isNotEmpty()) add {
                         SegmentedDropdownItem(
@@ -100,6 +96,14 @@ internal fun InstallScreenMaterial(
                             title = "${stringResource(R.string.install_select_partition)} (${uiState.slotSuffix})",
                             onItemSelected = actions.onSelectPartition,
                             icon = Icons.Filled.Edit
+                        )
+                    }
+                    if (uiState.canForceBackup) add {
+                        SegmentedCheckboxItem(
+                            title = stringResource(R.string.install_force_backup),
+                            summary = stringResource(R.string.install_force_backup_summary),
+                            onCheckedChange = actions.onSelectForceBackup,
+                            checked = uiState.forceBackup,
                         )
                     }
                     add {
@@ -140,78 +144,58 @@ internal fun InstallScreenMaterial(
             )
 
             SegmentedColumn(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                visibleLen = if (uiState.advancedOptionsShown) 0 else 1,
-                content = buildList {
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) {
+                item {
                     val rotationState by animateFloatAsState(
                         targetValue = if (uiState.advancedOptionsShown) 180f else 0f,
                         label = "RotationAnimation"
                     )
-                    add {
-                        SegmentedListItem(
-                            headlineContent = { Text(stringResource(R.string.advanced_options)) },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.Filled.ExpandMore,
-                                    contentDescription = stringResource(R.string.expand),
-                                    modifier = Modifier.graphicsLayer { rotationZ = rotationState }
-                                )
-                            },
-                            onClick = actions.onAdvancedOptionsClicked
-                        )
-                    }
-                    add {
-                        AnimatedVisibility(
-                            uiState.advancedOptionsShown,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            SegmentedCheckboxItem(
-                                title = stringResource(id = R.string.allow_shell),
-                                summary = stringResource(id = R.string.allow_shell_summary),
-                                checked = uiState.allowShell,
-                                onCheckedChange = actions.onSelectAllowShell,
+                    SegmentedListItem(
+                        headlineContent = { Text(stringResource(R.string.advanced_options)) },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.ExpandMore,
+                                contentDescription = stringResource(R.string.expand),
+                                modifier = Modifier.graphicsLayer { rotationZ = rotationState }
                             )
-                        }
-                    }
-                    add {
-                        AnimatedVisibility(
-                            uiState.advancedOptionsShown,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            SegmentedCheckboxItem(
-                                title = stringResource(id = R.string.enable_adb),
-                                summary = stringResource(id = R.string.enable_adb_summary),
-                                checked = uiState.enableAdb,
-                                onCheckedChange = actions.onSelectEnableAdb,
-                            )
-                        }
-                    }
-                    add {
-                        AnimatedVisibility(
-                            uiState.advancedOptionsShown,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            SegmentedCheckboxItem(
-                                title = "vivo mode",
-                                summary = if (uiState.enableVivoPatch) {
-                                    "ON: vendor_boot -> rmvr (no LKM); init_boot/boot -> _vivo LKM"
-                                } else {
-                                    "OFF: standard patch flow"
-                                },
-                                checked = uiState.enableVivoPatch,
-                                onCheckedChange = actions.onSelectEnableVivoPatch,
-                            )
-                        }
-                    }
+                        },
+                        onClick = actions.onAdvancedOptionsClicked
+                    )
                 }
-            )
+                item(visible = uiState.advancedOptionsShown) {
+                    SegmentedCheckboxItem(
+                        title = stringResource(id = R.string.allow_shell),
+                        summary = stringResource(id = R.string.allow_shell_summary),
+                        checked = uiState.allowShell,
+                        onCheckedChange = actions.onSelectAllowShell,
+                    )
+                }
+                item(visible = uiState.advancedOptionsShown) {
+                    SegmentedCheckboxItem(
+                        title = stringResource(id = R.string.enable_adb),
+                        summary = stringResource(id = R.string.enable_adb_summary),
+                        checked = uiState.enableAdb,
+                        onCheckedChange = actions.onSelectEnableAdb,
+                    )
+                }
+                item(visible = uiState.advancedOptionsShown) {
+                    SegmentedCheckboxItem(
+                        title = "vivo mode",
+                        summary = if (uiState.enableVivoPatch) {
+                            "ON: vendor_boot -> rmvr (no LKM); init_boot/boot -> _vivo LKM"
+                        } else {
+                            "OFF: standard patch flow"
+                        },
+                        checked = uiState.enableVivoPatch,
+                        onCheckedChange = actions.onSelectEnableVivoPatch,
+                    )
+                }
+            }
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp),
                 enabled = uiState.installMethod != null,
                 onClick = actions.onNext
             ) { Text(stringResource(R.string.install_next)) }
@@ -244,7 +228,7 @@ private fun SelectInstallMethod(
 
     key(state.installMethodOptions.size) {
         SegmentedColumn(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp),
             content = state.installMethodOptions.map { option ->
                 {
                     SegmentedRadioItem(
@@ -259,7 +243,6 @@ private fun SelectInstallMethod(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TopBar(
     onBack: () -> Unit = {},
@@ -268,14 +251,9 @@ private fun TopBar(
     LargeFlexibleTopAppBar(
         title = { Text(stringResource(R.string.install)) },
         navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-            }
+            TopBarBackButton(onClick = onBack)
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = expressiveTopAppBarColors(),
         windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         scrollBehavior = scrollBehavior
     )

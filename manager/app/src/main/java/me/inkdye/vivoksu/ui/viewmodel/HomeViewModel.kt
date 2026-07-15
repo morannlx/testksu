@@ -1,6 +1,5 @@
 package me.inkdye.vivoksu.ui.viewmodel
 
-import android.content.Context
 import android.os.Build
 import android.system.Os
 import androidx.lifecycle.ViewModel
@@ -14,6 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.inkdye.vivoksu.BuildConfig
 import me.inkdye.vivoksu.Natives
+import me.inkdye.vivoksu.data.repository.SettingsRepository
+import me.inkdye.vivoksu.data.repository.SettingsRepositoryImpl
 import me.inkdye.vivoksu.getKernelVersion
 import me.inkdye.vivoksu.ksuApp
 import me.inkdye.vivoksu.ui.screen.home.HomeUiState
@@ -24,9 +25,12 @@ import me.inkdye.vivoksu.ui.util.getModuleCount
 import me.inkdye.vivoksu.ui.util.getSELinuxStatusRaw
 import me.inkdye.vivoksu.ui.util.getSuperuserCount
 import me.inkdye.vivoksu.ui.util.module.LatestVersionInfo
+import me.inkdye.vivoksu.ui.util.resolveDeviceName
 import me.inkdye.vivoksu.ui.util.rootAvailable
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(
+    private val settingsRepo: SettingsRepository = SettingsRepositoryImpl()
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(buildState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -56,6 +60,14 @@ class HomeViewModel : ViewModel() {
                 null
             }
         } else null
+        val kernelUAPIVersion = if (isManager) {
+            try {
+                Natives.kernelUAPIVersion
+            } catch (_: Throwable) {
+                null
+            }
+        } else null
+        val managerUAPIVersion = Natives.managerUAPIVersion
         val lkmMode = ksuVersion?.let {
             if (kernelVersion.isGKI()) {
                 try {
@@ -80,18 +92,21 @@ class HomeViewModel : ViewModel() {
             isManagerPrBuild = BuildConfig.IS_PR_BUILD,
             isKernelPrBuild = try { Natives.isPrBuild } catch (_: Throwable) { false },
             requiresNewKernel = isManager && try { Natives.requireNewKernel() } catch (_: Throwable) { false },
+            uapiMismatch = isManager && try { Natives.checkUAPIMismatch() } catch (_: Throwable) { false },
+            kernelUAPIVersion = kernelUAPIVersion,
+            managerUAPIVersion = managerUAPIVersion,
             isRootAvailable = isRootAvailable,
             isSafeMode = try { Natives.isSafeMode } catch (_: Throwable) { false },
             isLateLoadMode = try { Natives.isLateLoadMode } catch (_: Throwable) { false },
-            checkUpdateEnabled = ksuApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
-                .getBoolean("check_update", true),
+            checkUpdateEnabled = settingsRepo.checkUpdate,
             latestVersionInfo = LatestVersionInfo(),
             currentManagerVersionCode = managerVersion.versionCode,
             superuserCount = getSuperuserCount(),
             moduleCount = getModuleCount(),
             systemInfo = SystemInfo(
                 kernelVersion = Os.uname().release,
-                managerVersion = "${managerVersion.versionName} (${managerVersion.versionCode})",
+                managerVersion = "${managerVersion.versionName} (${managerVersion.versionCode}-${managerUAPIVersion})",
+                deviceModel = resolveDeviceName(),
                 fingerprint = Build.FINGERPRINT,
                 selinuxStatus = getSELinuxStatusRaw(),
                 seccompStatus = runCatching {

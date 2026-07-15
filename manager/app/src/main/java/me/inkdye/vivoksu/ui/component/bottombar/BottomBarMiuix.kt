@@ -22,7 +22,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import top.yukonga.miuix.kmp.blur.Backdrop
 import me.inkdye.vivoksu.Natives
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.LocalMainPagerState
@@ -32,11 +31,14 @@ import me.inkdye.vivoksu.ui.theme.LocalEnableFloatingBottomBar
 import me.inkdye.vivoksu.ui.theme.LocalEnableFloatingBottomBarBlur
 import me.inkdye.vivoksu.ui.util.BlurredBar
 import me.inkdye.vivoksu.ui.util.rootAvailable
+import top.yukonga.miuix.kmp.basic.Badge
+import top.yukonga.miuix.kmp.basic.BadgedBox
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -44,6 +46,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun BottomBarMiuix(
     blurBackdrop: LayerBackdrop?,
     backdrop: Backdrop,
+    moduleBadge: ModuleBadgeState,
     modifier: Modifier,
 ) {
     val isManager = try { Natives.isManager } catch (_: Throwable) { false }
@@ -74,7 +77,8 @@ fun BottomBarMiuix(
                             selected = mainState.selectedPage == index,
                             onClick = {
                                 mainState.animateToPage(index)
-                            }
+                            },
+                            badge = moduleBadgeFor(index, moduleBadge),
                         )
                     }
                 }
@@ -102,16 +106,24 @@ fun BottomBarMiuix(
                     },
                     modifier = Modifier.defaultMinSize(minWidth = 76.dp)
                 ) {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.label,
-                        tint = MiuixTheme.colorScheme.onSurface
-                    )
+                    // Icon and label take LocalContentColor so the FloatingBottomBar backdrop copy
+                    // can recolor them to the accent tone inside the indicator pill.
+                    val badge = moduleBadgeFor(index, moduleBadge, floating = true)
+                    val icon: @Composable () -> Unit = {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                        )
+                    }
+                    if (badge != null) {
+                        BadgedBox(badge = { badge() }) { icon() }
+                    } else {
+                        icon()
+                    }
                     Text(
                         text = item.label,
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
-                        color = MiuixTheme.colorScheme.onSurface,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Visible
@@ -130,4 +142,30 @@ enum class BottomBarDestination(
     SuperUser(R.string.superuser, Icons.Rounded.Security),
     Module(R.string.module, Icons.Rounded.Extension),
     Setting(R.string.settings, Icons.Rounded.Settings)
+}
+
+internal fun moduleBadgeFor(
+    index: Int,
+    badge: ModuleBadgeState,
+    floating: Boolean = false,
+): (@Composable () -> Unit)? {
+    if (index != BottomBarDestination.Module.ordinal) return null
+    // Pending updates take priority: default badge color (red) with the updatable count;
+    // otherwise the theme-colored badge shows the enabled count.
+    if (badge.updatableCount > 0) {
+        return {
+            Badge {
+                Text(badge.updatableCount.toString())
+            }
+        }
+    }
+    if (badge.enabledCount <= 0) return null
+    return {
+        Badge(
+            containerColor = if (floating) MiuixTheme.colorScheme.primaryContainer else MiuixTheme.colorScheme.primary,
+            contentColor = if (floating) MiuixTheme.colorScheme.onPrimaryContainer else MiuixTheme.colorScheme.onPrimary,
+        ) {
+            Text(badge.enabledCount.toString())
+        }
+    }
 }
