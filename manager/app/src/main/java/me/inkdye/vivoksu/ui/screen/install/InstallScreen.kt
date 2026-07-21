@@ -2,7 +2,6 @@ package me.inkdye.vivoksu.ui.screen.install
 
 import android.app.Activity
 import android.content.Intent
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -56,14 +55,6 @@ fun InstallScreen() {
     var allowShell by rememberSaveable { mutableStateOf(false) }
     var enableAdb by rememberSaveable { mutableStateOf(false) }
     var forceBackup by rememberSaveable { mutableStateOf(false) }
-    var enableVivoPatch by rememberSaveable {
-        mutableStateOf(
-            Build.MANUFACTURER.orEmpty().contains("vivo", ignoreCase = true) ||
-                Build.MANUFACTURER.orEmpty().contains("iqoo", ignoreCase = true) ||
-                Build.BRAND.orEmpty().contains("vivo", ignoreCase = true) ||
-                Build.BRAND.orEmpty().contains("iqoo", ignoreCase = true)
-        )
-    }
 
     val currentKmi by produceState(initialValue = "") { value = getCurrentKmi() }
     val partitions by produceState(initialValue = emptyList()) { value = getAvailablePartitions() }
@@ -125,20 +116,13 @@ fun InstallScreen() {
                         allowShell = allowShell,
                         enableAdb = enableAdb,
                         backup = method is InstallMethod.SelectFile && forceBackup,
-                        vivoPatch = enableVivoPatch,
                     )
                 )
             )
         }
     }
 
-    val preferredKmiForDialog = if (enableVivoPatch) {
-        currentKmi.takeIf { it.isNotBlank() }?.let { base ->
-            if (base.endsWith("_vivo")) base else "${base}_vivo"
-        }
-    } else {
-        currentKmi.takeIf { it.isNotBlank() }
-    }
+    val preferredKmiForDialog = currentKmi.takeIf { it.isNotBlank() }
 
     ChooseKmiDialog(
         show = showChooseKmiDialog.value,
@@ -181,7 +165,6 @@ fun InstallScreen() {
         lkmSelection = lkmSelection,
         partitionSelectionIndex = partitionSelectionIndex,
         displayPartitions = displayPartitions,
-        currentKmi = currentKmi,
         slotSuffix = slotSuffix,
         installMethodOptions = installMethodOptions,
         canSelectPartition = installMethod is InstallMethod.DirectInstall || installMethod is InstallMethod.DirectInstallToInactiveSlot,
@@ -190,7 +173,6 @@ fun InstallScreen() {
         enableAdb = enableAdb,
         forceBackup = forceBackup,
         canForceBackup = installMethod is InstallMethod.SelectFile,
-        enableVivoPatch = enableVivoPatch,
     )
     val actions = InstallScreenActions(
         onBack = dropUnlessResumed { navigator.pop() },
@@ -225,9 +207,6 @@ fun InstallScreen() {
         },
         onSelectForceBackup = {
             forceBackup = it
-        },
-        onSelectEnableVivoPatch = {
-            enableVivoPatch = it
         }
     )
 

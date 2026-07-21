@@ -6,7 +6,6 @@ on:
     paths:
       - '.github/workflows/build-manager.yml'
       - '.github/workflows/build-lkm.yml'
-      - '.github/workflows/build-lkm-vivo.yml'
       - '.github/workflows/ddk-lkm.yml'
       - '.github/workflows/ksud.yml'
       - '.github/workflows/ksud-extra.yml'
@@ -22,7 +21,6 @@ on:
     paths:
       - '.github/workflows/build-manager.yml'
       - '.github/workflows/build-lkm.yml'
-      - '.github/workflows/build-lkm-vivo.yml'
       - '.github/workflows/ddk-lkm.yml'
       - '.github/workflows/ksud.yml'
       - '.github/workflows/ksud-extra.yml'
@@ -133,22 +131,11 @@ jobs:
       ksu_version: ${{ needs.compute-version.outputs.ksu_version }}
     secrets: inherit
 
-  build-lkm-vivo:
-    needs: [generate-key, resolve-custom-cert, compute-version]
-    uses: ./.github/workflows/build-lkm-vivo.yml
-    with:
-      expected_size2: ${{ needs.generate-key.outputs.expected_size || '' }}
-      expected_hash2: ${{ needs.generate-key.outputs.expected_hash || '' }}
-      expected_size: ${{ needs.resolve-custom-cert.outputs.custom_size || '' }}
-      expected_hash: ${{ needs.resolve-custom-cert.outputs.custom_hash || '' }}
-      ksu_version: ${{ needs.compute-version.outputs.ksu_version }}
-    secrets: inherit
-
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
 
   build-ksud:
-    needs: [build-lkm, build-lkm-vivo, build-ksuinit]
+    needs: [build-lkm, build-ksuinit]
     strategy:
       matrix:
         include:
@@ -161,7 +148,7 @@ jobs:
       pack_ksuinit: true
   
   build-ksud-extra:
-    needs: [build-lkm, build-lkm-vivo, build-ksuinit]
+    needs: [build-lkm, build-ksuinit]
     strategy:
       matrix:
         include:
