@@ -44,22 +44,14 @@ fun ChooseKmiDialogMiuix(
         value = getCurrentKmi()
     }
 
-    // Reorder: preferred KMI first, then fallback (base without _vivo), then rest
     val orderedKMIs = remember(supportedKMIs, preferredKmi) {
         if (preferredKmi.isNullOrBlank()) {
             supportedKMIs
         } else {
             val preferred = supportedKMIs.firstOrNull { it == preferredKmi }
-            val fallback = if (preferredKmi.endsWith("_vivo")) {
-                preferredKmi.removeSuffix("_vivo")
-            } else {
-                preferredKmi
-            }
-            val secondary = supportedKMIs.firstOrNull { it == fallback }
             buildList {
                 preferred?.let { add(it) }
-                if (secondary != null && secondary != preferred) add(secondary)
-                addAll(supportedKMIs.filter { it != preferred && it != secondary })
+                addAll(supportedKMIs.filter { it != preferred })
             }
         }
     }

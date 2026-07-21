@@ -9,7 +9,6 @@ internal data class InstallUiState(
     val lkmSelection: LkmSelection,
     val partitionSelectionIndex: Int,
     val displayPartitions: List<String>,
-    val currentKmi: String,
     val slotSuffix: String,
     val installMethodOptions: List<InstallMethod>,
     val canSelectPartition: Boolean,
@@ -18,7 +17,6 @@ internal data class InstallUiState(
     val enableAdb: Boolean,
     val forceBackup: Boolean,
     val canForceBackup: Boolean,
-    val enableVivoPatch: Boolean,
 )
 
 @Immutable
@@ -34,5 +32,4 @@ internal data class InstallScreenActions(
     val onSelectAllowShell: (Boolean) -> Unit,
     val onSelectEnableAdb: (Boolean) -> Unit,
     val onSelectForceBackup: (Boolean) -> Unit,
-    val onSelectEnableVivoPatch: (Boolean) -> Unit,
 )

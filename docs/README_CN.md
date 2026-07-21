@@ -33,6 +33,7 @@ WSA, ChromeOS 和运行在容器上的 Android 也可以与 KernelSU 一起工�
 
 - [安装教程](https://kernelsu.org/zh_CN/guide/installation.html)
 - [如何构建？](https://kernelsu.org/zh_CN/guide/how-to-build.html)
+- [vivo/iQOO 运行时兼容说明](vivo_CN.md)
 - [官方网站](https://kernelsu.org/zh_CN/)
 
 ## 参与翻译

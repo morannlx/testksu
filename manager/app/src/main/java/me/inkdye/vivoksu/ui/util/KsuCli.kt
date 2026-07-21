@@ -271,7 +271,6 @@ fun installBoot(
     allowShell: Boolean,
     enableAdb: Boolean,
     forceBackup: Boolean,
-    vivoPatch: Boolean = false,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
 ): FlashResult {
@@ -288,17 +287,9 @@ fun installBoot(
         }
     }
 
-    val useVivoRmvr = vivoPatch && partition == "vendor_boot"
-    val useVivoLkm = vivoPatch && !useVivoRmvr
-    onStdout(
-        when {
-            useVivoRmvr -> "[manager] vivo mode: vendor_boot rmvr (no LKM injection)"
-            useVivoLkm -> "[manager] vivo mode: install vivo-vermagic LKM into ${partition ?: "init_boot"}"
-            else -> "[manager] standard patch flow on ${partition ?: "auto"}"
-        }
-    )
+    onStdout("[manager] standard patch flow on ${partition ?: "auto"}")
 
-    var cmd = if (useVivoRmvr) "boot-patch-vivo" else "boot-patch"
+    var cmd = "boot-patch"
 
     cmd += if (bootFile == null) {
         // no boot.img, use -f to flash
@@ -338,12 +329,7 @@ fun installBoot(
         }
 
         is LkmSelection.KmiString -> {
-            val selectedKmi = if (useVivoLkm && !lkm.value.endsWith("_vivo")) {
-                "${lkm.value}_vivo"
-            } else {
-                lkm.value
-            }
-            cmd += " --kmi $selectedKmi"
+            cmd += " --kmi ${lkm.value}"
         }
 
         LkmSelection.KmiNone -> {
@@ -356,11 +342,6 @@ fun installBoot(
         val downloadsDir =
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         cmd += " -o $downloadsDir"
-        if (useVivoRmvr) {
-            cmd += " --out-name kernelsu_patched_rmvr_${System.currentTimeMillis()}.img"
-        } else if (useVivoLkm) {
-            cmd += " --out-name kernelsu_patched_vivo_${System.currentTimeMillis()}.img"
-        }
     }
 
     partition?.let { part ->
