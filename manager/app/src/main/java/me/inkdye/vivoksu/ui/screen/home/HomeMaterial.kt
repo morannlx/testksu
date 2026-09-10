@@ -255,9 +255,7 @@ private fun StatusCard(
             contentColor = contentColor,
             shape = MaterialTheme.shapes.large,
             onClick = {
-                if (!state.isLateLoadMode) {
-                    actions.onInstallClick()
-                }
+                actions.onInstallClick()
             }
         ) {
             ListItem(
