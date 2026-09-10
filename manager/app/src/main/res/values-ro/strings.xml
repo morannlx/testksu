@@ -73,7 +73,11 @@
     <string name="launch_app">Lansare</string>
     <string name="force_stop_app">Oprire forțată</string>
     <string name="restart_app">Repornește</string>
-    <string name="require_kernel_version">Versiunea actuală a KernelSU %1$d este prea mică pentru ca managerul să funcționeze corect. Actualizează la versiunea %2$d sau o versiune superioară!</string>
+    <string name="home_lkm_update_available">Este disponibilă o versiune mai nouă a LKM-ului integrat. Atingeți pentru actualizare.</string>
+    <string name="home_lkm_custom">Personalizat</string>
+    <string name="require_manager_version">Este necesară actualizarea managerului.</string>
+    <string name="require_kernel_version">Este necesară actualizarea kernelului. Atingeți pentru instalare.</string>
+    <string name="require_kernel_version_gki">Este necesară actualizarea kernelului.</string>
     <string name="module_changelog">Jurnalul modificărilor</string>
     <string name="app_profile_template_import_success">Importat cu succes</string>
     <string name="app_profile_export_to_clipboard">Export în clipboard</string>
@@ -107,7 +111,12 @@
 \nContinui?</string>
     <string name="select_kmi">Selectează KMI</string>
     <string name="direct_install">Instalare directă (recomandat)</string>
-    <string name="select_file">Selectează un fișier</string>
+    <string name="select_file">Selectează și patchuiește un fișier</string>
+    <string name="download_file">Descarcă și patchuiește un fișier</string>
+    <string name="download_dialog_title">Introduceți URL-ul imaginii</string>
+    <string name="download_dialog_msg">Imagine OTA completă sau imagine de fabrică</string>
+    <string name="download_no_boot_partition">Nu s-a găsit nicio partiție boot, init_boot sau vendor_boot în imagine</string>
+    <string name="download_probe_failed">Analiza imaginii a eșuat: %1$s</string>
     <string name="install_inactive_slot">Instalează într-un slot inactiv (după OTA)</string>
     <string name="settings_uninstall">Dezinstalează</string>
     <string name="settings_restore_stock_image">Restaurare imagine stoc</string>

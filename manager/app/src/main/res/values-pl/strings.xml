@@ -74,7 +74,11 @@
     <string name="force_stop_app">Wymuś zatrzymanie</string>
     <string name="restart_app">Restartuj</string>
     <string name="failed_to_update_sepolicy">Nie udało się zaktualizować reguł SELinux dla %s</string>
-    <string name="require_kernel_version">Obecna wersja KernelSU %1$d jest zbyt stara, aby menedżer działał poprawnie. Prosimy o aktualizację do wersji %2$d lub nowszej!</string>
+    <string name="home_lkm_update_available">Dostępna jest nowsza wersja wbudowanego LKM. Kliknij, aby zaktualizować.</string>
+    <string name="home_lkm_custom">Własny</string>
+    <string name="require_manager_version">Wymagana jest aktualizacja menedżera.</string>
+    <string name="require_kernel_version">Wymagana jest aktualizacja jądra. Kliknij, aby zainstalować.</string>
+    <string name="require_kernel_version_gki">Wymagana jest aktualizacja jądra.</string>
     <string name="module_changelog">Dziennik zmian</string>
     <string name="enable_web_debugging">Debugowanie WebView</string>
     <string name="enable_web_debugging_summary">Może być użyte do debugowania WebUI. Włącz tylko w razie potrzeby.</string>
@@ -82,7 +86,12 @@
     <string name="select_kmi">Wybierz KMI</string>
     <string name="install_next">Dalej</string>
     <string name="direct_install">Instalacja bezpośrednia (zalecane)</string>
-    <string name="select_file">Wybierz plik</string>
+    <string name="select_file">Wybierz i załataj plik</string>
+    <string name="download_file">Pobierz i załataj plik</string>
+    <string name="download_dialog_title">Wprowadź URL obrazu</string>
+    <string name="download_dialog_msg">Pełny obraz OTA lub obraz fabryczny</string>
+    <string name="download_no_boot_partition">Nie znaleziono partycji boot, init_boot ani vendor_boot w obrazie</string>
+    <string name="download_probe_failed">Nie udało się sprawdzić obrazu: %1$s</string>
     <string name="install_inactive_slot">Zainstaluj do nieaktywnego slotu (po aktualizcji OTA)</string>
     <string name="install_inactive_slot_warning">Po ponownym uruchomieniu Twoje urządzenie zostanie **ZMUSZONE** do uruchomia się z obecnie nieaktywnego slotu!
 \nUżyj tej opcji dopiero po zakończeniu aktualizacji OTA.

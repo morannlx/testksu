@@ -66,8 +66,8 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CheckableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -134,6 +134,7 @@ import kotlinx.coroutines.launch
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.data.model.Module
 import me.inkdye.vivoksu.data.model.ModuleUpdateInfo
+import me.inkdye.vivoksu.data.repository.isSoftRebootPreferred
 import me.inkdye.vivoksu.ui.component.ObserveAsEvents
 import me.inkdye.vivoksu.ui.component.ScrollToTopOnChange
 import me.inkdye.vivoksu.ui.component.dialog.rememberConfirmDialog
@@ -143,7 +144,6 @@ import me.inkdye.vivoksu.ui.component.material.ExpressiveSwitch
 import me.inkdye.vivoksu.ui.component.material.SearchAppBar
 import me.inkdye.vivoksu.ui.component.material.SnackBarHost
 import me.inkdye.vivoksu.ui.component.material.TonalCard
-import me.inkdye.vivoksu.ui.component.rebootlistpopup.RebootListPopup
 import me.inkdye.vivoksu.ui.component.statustag.StatusTag
 import me.inkdye.vivoksu.ui.util.reboot
 
@@ -255,14 +255,17 @@ fun ModulePagerMaterial(
             is ModuleEffect.SnackBar -> {
                 // Cancel the previous reboot snackbar so a new one replaces it instead of queueing
                 snackbarJob.value?.cancel()
+                snackBarHost.currentSnackbarData?.dismiss()
+                // Soft reboot keeps the jailbreak and still applies module changes
+                val softReboot = isSoftRebootPreferred()
                 snackbarJob.value = scope.launch {
                     val result = snackBarHost.showSnackbar(
                         message = event.message,
-                        actionLabel = resource.getString(R.string.reboot),
+                        actionLabel = resource.getString(if (softReboot) R.string.reboot_soft else R.string.reboot),
                         duration = SnackbarDuration.Long
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        reboot()
+                        reboot(if (softReboot) "soft_reboot" else "")
                     }
                 }
             }
@@ -288,8 +291,6 @@ fun ModulePagerMaterial(
                     }
                 },
                 actions = {
-                    RebootListPopup()
-
                     var showDropdown by remember { mutableStateOf(false) }
                     IconButton(
                         onClick = { showDropdown = true }
@@ -303,7 +304,7 @@ fun ModulePagerMaterial(
                             onDismissRequest = { showDropdown = false }
                         ) {
                             DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
-                                DropdownMenuItem(
+                                CheckableDropdownMenuItem(
                                     text = { Text(stringResource(R.string.module_sort_action_first)) },
                                     checked = uiState.sortActionFirst,
                                     checkedLeadingIcon = {
@@ -319,7 +320,7 @@ fun ModulePagerMaterial(
                                     },
                                     shapes = MenuDefaults.itemShape(index = 0, count = 2),
                                 )
-                                DropdownMenuItem(
+                                CheckableDropdownMenuItem(
                                     text = { Text(stringResource(R.string.module_sort_enabled_first)) },
                                     checked = uiState.sortEnabledFirst,
                                     checkedLeadingIcon = {

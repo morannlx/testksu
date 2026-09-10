@@ -23,7 +23,6 @@ import me.inkdye.vivoksu.ui.screen.home.getManagerVersion
 import me.inkdye.vivoksu.ui.util.checkNewVersion
 import me.inkdye.vivoksu.ui.util.getModuleCount
 import me.inkdye.vivoksu.ui.util.getSELinuxStatusRaw
-import me.inkdye.vivoksu.ui.util.getSuperuserCount
 import me.inkdye.vivoksu.ui.util.module.LatestVersionInfo
 import me.inkdye.vivoksu.ui.util.resolveDeviceName
 import me.inkdye.vivoksu.ui.util.rootAvailable
@@ -88,11 +87,12 @@ class HomeViewModel(
             kernelVersion = kernelVersion,
             ksuVersion = ksuVersion,
             lkmMode = lkmMode,
+            isLkmBundled = lkmMode == true && Natives.isLkmBundled,
             isManager = isManager,
             isManagerPrBuild = BuildConfig.IS_PR_BUILD,
             isKernelPrBuild = try { Natives.isPrBuild } catch (_: Throwable) { false },
-            requiresNewKernel = isManager && try { Natives.requireNewKernel() } catch (_: Throwable) { false },
-            uapiMismatch = isManager && try { Natives.checkUAPIMismatch() } catch (_: Throwable) { false },
+            requiresNewKernel = isManager && try { Natives.managerUAPIVersion > Natives.kernelUAPIVersion } catch (_: Throwable) { false },
+            requiresNewManager = isManager && try { Natives.managerUAPIVersion < Natives.kernelUAPIVersion } catch (_: Throwable) { false },
             kernelUAPIVersion = kernelUAPIVersion,
             managerUAPIVersion = managerUAPIVersion,
             isRootAvailable = isRootAvailable,
@@ -101,8 +101,6 @@ class HomeViewModel(
             checkUpdateEnabled = settingsRepo.checkUpdate,
             latestVersionInfo = LatestVersionInfo(),
             currentManagerVersionCode = managerVersion.versionCode,
-            superuserCount = getSuperuserCount(),
-            moduleCount = getModuleCount(),
             systemInfo = SystemInfo(
                 kernelVersion = Os.uname().release,
                 managerVersion = "${managerVersion.versionName} (${managerVersion.versionCode}-${managerUAPIVersion})",

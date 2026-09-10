@@ -1,8 +1,7 @@
 package me.inkdye.vivoksu.ui.component.bottombar
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
@@ -14,10 +13,10 @@ import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,7 +29,6 @@ import me.inkdye.vivoksu.ui.component.FloatingBottomBarItem
 import me.inkdye.vivoksu.ui.theme.LocalEnableFloatingBottomBar
 import me.inkdye.vivoksu.ui.theme.LocalEnableFloatingBottomBarBlur
 import me.inkdye.vivoksu.ui.util.BlurredBar
-import me.inkdye.vivoksu.ui.util.rootAvailable
 import top.yukonga.miuix.kmp.basic.Badge
 import top.yukonga.miuix.kmp.basic.BadgedBox
 import top.yukonga.miuix.kmp.basic.Icon
@@ -46,11 +44,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 fun BottomBarMiuix(
     blurBackdrop: LayerBackdrop?,
     backdrop: Backdrop,
-    moduleBadge: ModuleBadgeState,
+    navigationBadge: NavigationBadgeState,
     modifier: Modifier,
 ) {
-    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
-    val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
+    val fullFeatured = try { Natives.isFullFeatured() } catch (_: Throwable) { false }
     if (!fullFeatured) return
 
     val mainState = LocalMainPagerState.current
@@ -78,37 +75,38 @@ fun BottomBarMiuix(
                             onClick = {
                                 mainState.animateToPage(index)
                             },
-                            badge = moduleBadgeFor(index, moduleBadge),
+                            badge = navigationBadgeFor(index, navigationBadge),
                         )
                     }
                 }
             )
         }
     } else {
+        val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            .let { inset -> if (inset != 0.dp) 8.dp + inset else 28.dp }
         FloatingBottomBar(
             modifier = modifier
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                )
-                .padding(bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-            selectedIndex = { mainState.selectedPage },
+                .pointerInput(Unit) {
+                    detectTapGestures { }
+                }
+                .padding(start = 28.dp, end = 28.dp, bottom = bottomPadding),
+            selectedIndex = mainState.selectedPage,
             onSelected = { mainState.animateToPage(it) },
             backdrop = backdrop,
             tabsCount = items.size,
             isBlurEnabled = enableFloatingBottomBarBlur,
-        ) {
+        ) { activateTab ->
             items.forEachIndexed { index, item ->
                 FloatingBottomBarItem(
+                    selected = mainState.selectedPage == index,
                     onClick = {
-                        mainState.animateToPage(index)
+                        activateTab(index)
                     },
                     modifier = Modifier.defaultMinSize(minWidth = 76.dp)
                 ) {
                     // Icon and label take LocalContentColor so the FloatingBottomBar backdrop copy
                     // can recolor them to the accent tone inside the indicator pill.
-                    val badge = moduleBadgeFor(index, moduleBadge, floating = true)
+                    val badge = navigationBadgeFor(index, navigationBadge, floating = true)
                     val icon: @Composable () -> Unit = {
                         Icon(
                             imageVector = item.icon,
@@ -144,28 +142,30 @@ enum class BottomBarDestination(
     Setting(R.string.settings, Icons.Rounded.Settings)
 }
 
-internal fun moduleBadgeFor(
+internal fun navigationBadgeFor(
     index: Int,
-    badge: ModuleBadgeState,
+    state: NavigationBadgeState,
     floating: Boolean = false,
 ): (@Composable () -> Unit)? {
-    if (index != BottomBarDestination.Module.ordinal) return null
-    // Pending updates take priority: default badge color (red) with the updatable count;
-    // otherwise the theme-colored badge shows the enabled count.
-    if (badge.updatableCount > 0) {
-        return {
-            Badge {
-                Text(badge.updatableCount.toString())
+    val badge = badgeFor(index, state) ?: return null
+    return when (badge.tone) {
+        BadgeTone.Alert -> {
+            {
+                Badge {
+                    Text(badge.count.toString())
+                }
             }
         }
-    }
-    if (badge.enabledCount <= 0) return null
-    return {
-        Badge(
-            containerColor = if (floating) MiuixTheme.colorScheme.primaryContainer else MiuixTheme.colorScheme.primary,
-            contentColor = if (floating) MiuixTheme.colorScheme.onPrimaryContainer else MiuixTheme.colorScheme.onPrimary,
-        ) {
-            Text(badge.enabledCount.toString())
+
+        BadgeTone.Accent -> {
+            {
+                Badge(
+                    containerColor = if (floating) MiuixTheme.colorScheme.primaryContainer else MiuixTheme.colorScheme.primary,
+                    contentColor = if (floating) MiuixTheme.colorScheme.onPrimaryContainer else MiuixTheme.colorScheme.onPrimary,
+                ) {
+                    Text(badge.count.toString())
+                }
+            }
         }
     }
 }

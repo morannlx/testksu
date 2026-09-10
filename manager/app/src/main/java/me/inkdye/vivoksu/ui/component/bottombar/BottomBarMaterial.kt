@@ -29,15 +29,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import me.inkdye.vivoksu.Natives
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.LocalMainPagerState
-import me.inkdye.vivoksu.ui.util.rootAvailable
 
 @Composable
-fun BottomBarMaterial(moduleBadge: ModuleBadgeState) {
-    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
-    val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
-    val mainPagerState = LocalMainPagerState.current
-
+fun BottomBarMaterial(navigationBadge: NavigationBadgeState) {
+    val fullFeatured = try { Natives.isFullFeatured() } catch (_: Throwable) { false }
     if (!fullFeatured) return
+
+    val mainPagerState = LocalMainPagerState.current
 
     val items = listOf(
         Triple(R.string.home, Icons.Filled.Home, Icons.Outlined.Home),
@@ -65,7 +63,7 @@ fun BottomBarMaterial(moduleBadge: ModuleBadgeState) {
                     NavigationIconWithBadge(
                         icon = if (selected) selectedIcon else unselectedIcon,
                         contentDescription = stringResource(label),
-                        badge = if (index == BottomBarDestination.Module.ordinal) moduleBadge else null,
+                        badge = badgeFor(index, navigationBadge),
                     )
                 },
                 label = {
@@ -84,23 +82,21 @@ fun BottomBarMaterial(moduleBadge: ModuleBadgeState) {
 internal fun NavigationIconWithBadge(
     icon: ImageVector,
     contentDescription: String?,
-    badge: ModuleBadgeState?,
+    badge: NavBadge?,
 ) {
-    if (badge != null && (badge.updatableCount > 0 || badge.enabledCount > 0)) {
+    if (badge != null) {
         BadgedBox(
             badge = {
-                // Pending updates take priority: default badge color (red) with the updatable
-                // count; otherwise the theme-colored badge shows the enabled count.
-                if (badge.updatableCount > 0) {
-                    Badge {
-                        Text(badge.updatableCount.toString())
+                when (badge.tone) {
+                    BadgeTone.Alert -> Badge {
+                        Text(badge.count.toString())
                     }
-                } else {
-                    Badge(
+
+                    BadgeTone.Accent -> Badge(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
-                        Text(badge.enabledCount.toString())
+                        Text(badge.count.toString())
                     }
                 }
             }

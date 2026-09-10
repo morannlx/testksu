@@ -70,7 +70,11 @@ Liitu meie %2$si kanaliga</string>
     <string name="profile_capabilities">Võimekused</string>
     <string name="app_profile_template_id_invalid">Sobimatu malli ID</string>
     <string name="profile_selinux_context">SELinux kontekst</string>
-    <string name="require_kernel_version">Praegune KernelSU versioon %1$d on liiga madal, haldur ei saa korrektselt töötada. Palun täienda versioonile %2$d või kõrgem!</string>
+    <string name="home_lkm_update_available">Saadaval on kaasasoleva LKM-i uuem versioon. Puuduta värskendamiseks.</string>
+    <string name="home_lkm_custom">Kohandatud</string>
+    <string name="require_manager_version">Halduri värskendamine on vajalik.</string>
+    <string name="require_kernel_version">Kerneli värskendamine on vajalik. Puuduta installimiseks.</string>
+    <string name="require_kernel_version_gki">Kerneli värskendamine on vajalik.</string>
     <string name="profile_selinux_domain">Domeen</string>
     <string name="launch_app">Käivita</string>
     <string name="force_stop_app">Sundpeata</string>
@@ -115,7 +119,12 @@ Liitu meie %2$si kanaliga</string>
     <string name="flash_failed">Välgutamine ebaõnnestus</string>
     <string name="selected_lkm">Valitud LKM: %s</string>
     <string name="direct_install">Otsene paigaldus (soovitatud)</string>
-    <string name="select_file">Vali fail</string>
+    <string name="select_file">Vali ja paika fail</string>
+    <string name="download_file">Laadi alla ja paika fail</string>
+    <string name="download_dialog_title">Sisesta pildi URL</string>
+    <string name="download_dialog_msg">Täielik OTA-pilt või tehasepilt</string>
+    <string name="download_no_boot_partition">Pildist ei leitud boot-, init_boot- ega vendor_boot-partitsiooni</string>
+    <string name="download_probe_failed">Pildi kontrollimine ebaõnnestus: %1$s</string>
     <string name="install_inactive_slot">Paigalda ebaaktiivsesse lahtrisse (pärast üle-õhu uuendust)</string>
     <string name="settings_uninstall_temporary">Eemalda ajutiselt</string>
     <string name="settings_uninstall_permanent">Eemalda püsivalt</string>

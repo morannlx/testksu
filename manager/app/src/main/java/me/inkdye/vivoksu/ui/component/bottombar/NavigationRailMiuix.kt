@@ -1,24 +1,26 @@
 package me.inkdye.vivoksu.ui.component.bottombar
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import me.inkdye.vivoksu.Natives
 import me.inkdye.vivoksu.R
+import me.inkdye.vivoksu.data.repository.SettingsRepositoryImpl
 import me.inkdye.vivoksu.ui.LocalMainPagerState
-import me.inkdye.vivoksu.ui.util.rootAvailable
 import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
+import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun NavigationRailMiuix(
-    moduleBadge: ModuleBadgeState,
+    navigationBadge: NavigationBadgeState,
     modifier: Modifier = Modifier,
 ) {
-    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
-    val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
+    val fullFeatured = try { Natives.isFullFeatured() } catch (_: Throwable) { false }
     if (!fullFeatured) return
 
     val mainState = LocalMainPagerState.current
@@ -26,10 +28,21 @@ fun NavigationRailMiuix(
     val items = BottomBarDestination.entries.map { destination ->
         Pair(stringResource(destination.label), destination.icon)
     }
+    val settingsRepo = remember { SettingsRepositoryImpl() }
+    val state = rememberNavigationRailState(
+        initialValue = if (settingsRepo.navigationRailExpanded) {
+            NavigationRailValue.Expanded
+        } else {
+            NavigationRailValue.Collapsed
+        },
+    )
+    LaunchedEffect(state.currentValue) {
+        settingsRepo.navigationRailExpanded = state.isExpanded
+    }
 
     NavigationRail(
         modifier = modifier,
-        state = rememberNavigationRailState(),
+        state = state,
         color = MiuixTheme.colorScheme.surface,
         expandContentDescription = stringResource(R.string.nav_rail_expand),
         collapseContentDescription = stringResource(R.string.nav_rail_collapse),
@@ -42,7 +55,7 @@ fun NavigationRailMiuix(
                 },
                 icon = icon,
                 label = label,
-                badge = moduleBadgeFor(index, moduleBadge),
+                badge = navigationBadgeFor(index, navigationBadge),
             )
         }
     }

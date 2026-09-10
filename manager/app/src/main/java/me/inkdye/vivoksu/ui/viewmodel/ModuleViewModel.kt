@@ -35,6 +35,7 @@ import me.inkdye.vivoksu.ui.screen.module.ModuleConfirmDialogState
 import me.inkdye.vivoksu.ui.screen.module.ModuleConfirmRequest
 import me.inkdye.vivoksu.ui.screen.module.ModuleEffect
 import me.inkdye.vivoksu.ui.screen.module.ModuleUiState
+import me.inkdye.vivoksu.ui.util.PinyinUtil
 import me.inkdye.vivoksu.ui.util.hasMagisk
 import me.inkdye.vivoksu.ui.util.module.fetchModuleDetail
 import me.inkdye.vivoksu.ui.util.module.fetchReleaseDescriptionHtml
@@ -149,8 +150,7 @@ class ModuleViewModel(
         return modules.filter {
             it.id.contains(text, true) || it.name.contains(text, true) ||
                     it.description.contains(text, true) || it.author.contains(text, true) ||
-                    me.inkdye.vivoksu.ui.util.HanziToPinyin.getInstance().toPinyinString(it.name)
-                        .contains(text, true)
+                    PinyinUtil.toPinyin(it.name).contains(text, true)
         }
     }
 

@@ -49,7 +49,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -94,6 +94,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.data.model.RepoModule
+import me.inkdye.vivoksu.ui.component.PagerNavigationSpringSpec
 import me.inkdye.vivoksu.ui.component.ScrollToTopOnChange
 import me.inkdye.vivoksu.ui.component.dialog.ConfirmDialogHandle
 import me.inkdye.vivoksu.ui.component.dialog.rememberConfirmDialog
@@ -160,7 +161,7 @@ fun ModuleRepoScreenMaterial(
                             )
                             DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
                                 sortOptions.forEachIndexed { index, (order, resId) ->
-                                    DropdownMenuItem(
+                                    SelectableDropdownMenuItem(
                                         text = { Text(stringResource(resId)) },
                                         selected = state.sortOrder == order,
                                         onClick = {
@@ -431,6 +432,7 @@ fun ModuleRepoDetailScreenMaterial(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
+                overscrollEffect = null,
             ) { page ->
                 val paddedInnerPadding = PaddingValues(
                     top = innerPadding.calculateTopPadding() + 56.dp + 8.dp,
@@ -473,7 +475,12 @@ fun ModuleRepoDetailScreenMaterial(
             ExpressiveTabRow(
                 selectedTabIndex = pagerState.currentPage,
                 tabs = tabs,
-                onTabClick = { scope.launch { pagerState.animateScrollToPage(it) } },
+                onTabClick = { scope.launch {
+                    pagerState.animateScrollToPage(
+                        page = it,
+                        animationSpec = PagerNavigationSpringSpec,
+                    )
+                } },
                 modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
             )
         }

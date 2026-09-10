@@ -30,6 +30,8 @@ import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,19 +39,18 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import me.inkdye.vivoksu.Natives
 import me.inkdye.vivoksu.R
+import me.inkdye.vivoksu.data.repository.SettingsRepositoryImpl
 import me.inkdye.vivoksu.ui.LocalMainPagerState
-import me.inkdye.vivoksu.ui.util.rootAvailable
 
 @Composable
 fun NavigationRailMaterial(
-    moduleBadge: ModuleBadgeState,
+    navigationBadge: NavigationBadgeState,
     modifier: Modifier = Modifier,
 ) {
-    val isManager = try { Natives.isManager } catch (_: Throwable) { false }
-    val fullFeatured = isManager && !try { Natives.requireNewKernel() } catch (_: Throwable) { false } && rootAvailable()
-    val mainPagerState = LocalMainPagerState.current
-
+    val fullFeatured = try { Natives.isFullFeatured() } catch (_: Throwable) { false }
     if (!fullFeatured) return
+
+    val mainPagerState = LocalMainPagerState.current
 
     val items = listOf(
         Triple(R.string.home, Icons.Filled.Home, Icons.Outlined.Home),
@@ -58,9 +59,20 @@ fun NavigationRailMaterial(
         Triple(R.string.settings, Icons.Filled.Settings, Icons.Outlined.Settings)
     )
 
-    val state = rememberWideNavigationRailState()
+    val settingsRepo = remember { SettingsRepositoryImpl() }
+    val state = rememberWideNavigationRailState(
+        initialValue = if (settingsRepo.navigationRailExpanded) {
+            WideNavigationRailValue.Expanded
+        } else {
+            WideNavigationRailValue.Collapsed
+        },
+    )
     val scope = rememberCoroutineScope()
     val expanded = state.targetValue == WideNavigationRailValue.Expanded
+    LaunchedEffect(state.targetValue) {
+        settingsRepo.navigationRailExpanded =
+            state.targetValue == WideNavigationRailValue.Expanded
+    }
 
     WideNavigationRail(
         modifier = modifier.fillMaxHeight(),
@@ -105,7 +117,7 @@ fun NavigationRailMaterial(
                     NavigationIconWithBadge(
                         icon = if (selected) selectedIcon else unselectedIcon,
                         contentDescription = stringResource(label),
-                        badge = if (index == BottomBarDestination.Module.ordinal) moduleBadge else null,
+                        badge = badgeFor(index, navigationBadge),
                     )
                 },
                 label = { Text(stringResource(label)) }

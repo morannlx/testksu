@@ -4,10 +4,15 @@ import android.content.Context
 import android.os.PowerManager
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import me.inkdye.vivoksu.Natives
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
+import me.inkdye.vivoksu.ui.component.dialog.rememberConfirmDialog
+import me.inkdye.vivoksu.ui.util.reboot
 
 data class RebootListOption(
     @param:StringRes val labelRes: Int,
@@ -31,6 +36,24 @@ fun getRebootListOption(): List<RebootListOption> {
         add(RebootListOption(R.string.reboot_bootloader, "bootloader"))
         add(RebootListOption(R.string.reboot_download, "download"))
         add(RebootListOption(R.string.reboot_edl, "edl"))
+    }
+}
+
+/** Reboots on selection, but confirms first in jailbreak mode where a plain reboot drops root. */
+@Composable
+fun rememberRebootAction(): (String) -> Unit {
+    val title = stringResource(R.string.reboot)
+    val message = stringResource(R.string.jailbreak_reboot_warning)
+    val confirmDialog = rememberConfirmDialog(onConfirm = { reboot() })
+
+    return remember(title, message, confirmDialog) {
+        { reason ->
+            if (Natives.isLateLoadMode && reason.isEmpty()) {
+                confirmDialog.showConfirm(title = title, content = message)
+            } else {
+                reboot(reason)
+            }
+        }
     }
 }
 

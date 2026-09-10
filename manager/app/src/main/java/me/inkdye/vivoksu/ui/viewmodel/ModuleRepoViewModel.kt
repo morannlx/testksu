@@ -20,6 +20,7 @@ import me.inkdye.vivoksu.ksuApp
 import me.inkdye.vivoksu.ui.component.SearchStatus
 import me.inkdye.vivoksu.ui.screen.modulerepo.ModuleRepoUiState
 import me.inkdye.vivoksu.ui.screen.modulerepo.RepoSort
+import me.inkdye.vivoksu.ui.util.PinyinUtil
 import me.inkdye.vivoksu.ui.util.isNetworkAvailable
 import java.text.Collator
 import java.util.Locale
@@ -75,8 +76,7 @@ class ModuleRepoViewModel(
                     it.moduleName.contains(text, true) ||
                     it.authors.contains(text, true) ||
                     it.summary.contains(text, true) ||
-                    me.inkdye.vivoksu.ui.util.HanziToPinyin.getInstance().toPinyinString(it.moduleName)
-                        .contains(text, true)
+                    PinyinUtil.toPinyin(it.moduleName).contains(text, true)
         }
     }
 

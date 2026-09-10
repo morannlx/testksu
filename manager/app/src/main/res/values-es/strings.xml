@@ -75,7 +75,11 @@
     <string name="force_stop_app">Forzar detención</string>
     <string name="restart_app">Reiniciar</string>
     <string name="failed_to_update_sepolicy">Error al actualizar las reglas SELinux para: %s</string>
-    <string name="require_kernel_version">La versión %1$d actual de KernelSU es demasiado baja para que el gestor funcione correctamente. Por favor, ¡actualice a la versión %2$d o superior!</string>
+    <string name="home_lkm_update_available">Hay disponible una versión más reciente del LKM incluido. Toca para actualizar.</string>
+    <string name="home_lkm_custom">Personalizado</string>
+    <string name="require_manager_version">Se requiere actualizar el gestor.</string>
+    <string name="require_kernel_version">Se requiere actualizar el kernel. Toca para instalar.</string>
+    <string name="require_kernel_version_gki">Se requiere actualizar el kernel.</string>
     <string name="module_changelog">Registro de cambios</string>
     <string name="app_profile_template_import_success">Importado con éxito</string>
     <string name="app_profile_export_to_clipboard">Exportar al portapapeles</string>
@@ -111,7 +115,12 @@
     <string name="flash_success">Éxito de Flash</string>
     <string name="grant_root_failed">¡No se ha podido conceder el acceso root!</string>
     <string name="open">Abrir</string>
-    <string name="select_file">Seleccione un archivo</string>
+    <string name="select_file">Seleccionar y parchar un archivo</string>
+    <string name="download_file">Descargar y parchar un archivo</string>
+    <string name="download_dialog_title">Introduzca la URL de la imagen</string>
+    <string name="download_dialog_msg">Imagen OTA completa o imagen de fábrica</string>
+    <string name="download_no_boot_partition">No se encontró una partición boot, init_boot o vendor_boot en la imagen</string>
+    <string name="download_probe_failed">No se pudo analizar la imagen: %1$s</string>
     <string name="install_inactive_slot">Instalar en ranura inactiva (Después de OTA)</string>
     <string name="settings_uninstall_temporary">Desinstalar temporalmente</string>
     <string name="settings_uninstall_permanent">Desinstalar permanentemente</string>

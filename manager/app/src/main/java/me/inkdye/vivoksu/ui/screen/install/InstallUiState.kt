@@ -9,6 +9,9 @@ internal data class InstallUiState(
     val lkmSelection: LkmSelection,
     val partitionSelectionIndex: Int,
     val displayPartitions: List<String>,
+    val remotePartitionSelectionIndex: Int,
+    val remoteDisplayPartitions: List<String>,
+    val currentKmi: String,
     val slotSuffix: String,
     val installMethodOptions: List<InstallMethod>,
     val canSelectPartition: Boolean,
@@ -23,6 +26,7 @@ internal data class InstallUiState(
 internal data class InstallScreenActions(
     val onBack: () -> Unit,
     val onSelectMethod: (InstallMethod) -> Unit,
+    val onDownloadFile: () -> Unit,
     val onSelectBootImage: () -> Unit,
     val onUploadLkm: () -> Unit,
     val onClearLkm: () -> Unit,

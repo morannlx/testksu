@@ -74,7 +74,11 @@
     <string name="profile_umount_modules_summary">このオプションを有効にすると、KernelSU はこのアプリのモジュールによって変更されたファイルを復元できるようになります。</string>
     <string name="settings_umount_modules_default">デフォルトでモジュールをアンマウントする</string>
     <string name="settings_umount_modules_default_summary">アプリプロファイルの「モジュールのアンマウント」の共通のデフォルト値です。 有効にすると、プロファイルセットを持たないアプリのシステムに対するすべてのモジュールの変更が削除されます。</string>
-    <string name="require_kernel_version">現在の KernelSU バージョン %1$d はマネージャーが適切に機能するには低すぎます。 バージョン %2$d 以降にアップグレードしてください！</string>
+    <string name="home_lkm_update_available">内蔵 LKM の新しいバージョンが利用可能です。タップして更新します。</string>
+    <string name="home_lkm_custom">カスタム</string>
+    <string name="require_manager_version">マネージャーの更新が必要です。</string>
+    <string name="require_kernel_version">カーネルの更新が必要です。タップしてインストールします。</string>
+    <string name="require_kernel_version_gki">カーネルの更新が必要です。</string>
     <string name="module_changelog">変更履歴</string>
     <string name="app_profile_template_import_success">インポート成功</string>
     <string name="app_profile_export_to_clipboard">クリップボードからエクスポート</string>
@@ -107,7 +111,12 @@
     <string name="install_inactive_slot">非アクティブなスロットにインストール (OTA 後)</string>
     <string name="install_inactive_slot_warning">再起動後、デバイスは**強制的に**、現在非アクティブなスロットから起動します。\nこのオプションは、OTA が完了した後にのみ使用してください。\n続行しますか？</string>
     <string name="direct_install">直接インストール (推奨)</string>
-    <string name="select_file">ファイルを選択してください</string>
+    <string name="select_file">パッチするファイルを選択</string>
+    <string name="download_file">パッチするファイルをダウンロード</string>
+    <string name="download_dialog_title">イメージ URL を入力</string>
+    <string name="download_dialog_msg">完全な OTA イメージまたはファクトリーイメージ</string>
+    <string name="download_no_boot_partition">イメージに boot、init_boot、vendor_boot パーティションが見つかりません</string>
+    <string name="download_probe_failed">イメージの検査に失敗しました: %1$s</string>
     <string name="settings_uninstall_permanent">完全にアンインストールする</string>
     <string name="settings_restore_stock_image">ストックイメージを復元</string>
     <string name="settings_uninstall_temporary">一時的にアンインストールする</string>

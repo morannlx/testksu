@@ -61,7 +61,11 @@
     <string name="profile_selinux_context">SELinux içeriği</string>
     <string name="profile_umount_modules">Modüllerin bağlantısını kes</string>
     <string name="failed_to_update_app_profile">%s için uygulama profili güncellenemedi</string>
-    <string name="require_kernel_version">Mevcut KernelSU sürümü %1$d, yöneticinin düzgün çalışabilmesi için çok düşük. Lütfen %2$d sürümüne veya daha yüksek bir sürüme güncelleyin!</string>
+    <string name="home_lkm_update_available">Yerleşik LKM\'nin daha yeni bir sürümü mevcut. Güncellemek için dokunun.</string>
+    <string name="home_lkm_custom">Özel</string>
+    <string name="require_manager_version">Yönetici güncellemesi gerekli.</string>
+    <string name="require_kernel_version">Çekirdek güncellemesi gerekli. Yüklemek için dokunun.</string>
+    <string name="require_kernel_version_gki">Çekirdek güncellemesi gerekli.</string>
     <string name="settings_umount_modules_default">Varsayılan olarak modüllerin bağlantısını kes</string>
     <string name="settings_umount_modules_default_summary">Uygulama profilindeki \"Modüllerin bağlantısını kes\" seçeneği için varsayılan değer. Etkinleştirilirse, profil ayarı yapılmamış uygulamalar için modüllerin sistemde yaptığı tüm değişiklikler kaldırılacaktır.</string>
     <string name="profile_umount_modules_summary">Bu seçeneği etkinleştirmek, KernelSU\'nun bu uygulama için modüller tarafından değiştirilen dosyaları geri yüklemesine izin verir.</string>
@@ -102,7 +106,12 @@
     <string name="enable_web_debugging">WebView hata ayıklaması</string>
     <string name="enable_web_debugging_summary">Web kullanıcı arayüzünde hata ayıklamak için kullanılabilir, lütfen yalnızca gerektiğinde etkinleştirin.</string>
     <string name="direct_install">Doğrudan kur (Tavsiye edilen)</string>
-    <string name="select_file">Bir dosya seçin</string>
+    <string name="select_file">Bir dosya seçin ve yamalayın</string>
+    <string name="download_file">Bir dosya indirin ve yamalayın</string>
+    <string name="download_dialog_title">Görüntü URL\'sini girin</string>
+    <string name="download_dialog_msg">Tam OTA görüntüsü veya fabrika görüntüsü</string>
+    <string name="download_no_boot_partition">Görüntüde boot, init_boot veya vendor_boot bölümü bulunamadı</string>
+    <string name="download_probe_failed">Görüntü incelenemedi: %1$s</string>
     <string name="install_inactive_slot">Etkin olmayan yuvaya kur (OTA\'dan sonra)</string>
     <string name="install_inactive_slot_warning">Cihazınız geçerli etkin olmayan yuvaya **ZORLA** yeniden başlatılacaktır!
 \nBu seçeneği yalnızca OTA tamamlandıktan sonra kullanın.
@@ -137,7 +146,6 @@
     <string name="settings_sucompat_summary">Uygulama Profilinde Süper Kullanıcı izni verilen uygulamaların /system/bin/su yürütülerek süper kullanıcı kabuğu almasına izin verir; yalnızca yeni işlemler için etkilidir.</string>
     <string name="settings_kernel_umount">Kernel bağlantısını kes</string>
     <string name="settings_kernel_umount_summary">KernelSU tarafından kontrol edilen çekirdek seviyesinde bağlantı kesme davranışı.</string>
-    <string name="home_version_mismatch">Yönetici sürümü (%1$d) ile KernelSU sürücüsü sürümü (%2$d) uyuşmuyor.</string>
     <string name="reboot_soft">Soft restart</string>
     <string name="jailbreak_mode">Jailbreak modu</string>
     <string name="home_jailbreak">Jailbreak</string>

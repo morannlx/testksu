@@ -3,7 +3,7 @@ package me.inkdye.vivoksu.ui.component.rebootlistpopup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -17,13 +17,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.component.KsuIsValid
-import me.inkdye.vivoksu.ui.util.reboot
 
 @Composable
 fun RebootDropdownItems(onItemClick: (String) -> Unit) {
     val options = getRebootListOption()
     options.forEachIndexed { index, option ->
-        DropdownMenuItem(
+        SelectableDropdownMenuItem(
             selected = false,
             onClick = { onItemClick(option.reason) },
             text = { Text("  " + stringResource(option.labelRes)) },
@@ -37,6 +36,8 @@ fun RebootListPopupMaterial() {
     var expanded by remember { mutableStateOf(false) }
 
     KsuIsValid {
+        val onReboot = rememberRebootAction()
+
         IconButton(onClick = { expanded = true }) {
             Icon(
                 imageVector = Icons.Filled.PowerSettingsNew,
@@ -51,7 +52,7 @@ fun RebootListPopupMaterial() {
             DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
                 RebootDropdownItems { reason ->
                     expanded = false
-                    reboot(reason)
+                    onReboot(reason)
                 }
             }
         }

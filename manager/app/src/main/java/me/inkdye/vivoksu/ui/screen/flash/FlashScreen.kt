@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.inkdye.vivoksu.Natives
+import me.inkdye.vivoksu.R
+import me.inkdye.vivoksu.data.repository.isSoftRebootPreferred
 import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
 import me.inkdye.vivoksu.ui.navigation3.LocalNavigator
@@ -30,6 +32,8 @@ fun FlashScreen(flashIt: FlashIt) {
     var showRebootAction by rememberSaveable { mutableStateOf(false) }
     var flashingStatus by rememberSaveable { mutableStateOf(FlashingStatus.FLASHING) }
     val needJailbreakWarning = flashIt is FlashIt.FlashBoot && Natives.isLateLoadMode
+    // Soft reboot keeps the jailbreak and still applies modules
+    val softReboot = flashIt is FlashIt.FlashModules && isSoftRebootPreferred()
     var flashingEnabled by rememberSaveable { mutableStateOf(!needJailbreakWarning) }
     val uiMode = LocalUiMode.current
     val snackbarHost = remember { SnackbarHostState() }
@@ -59,6 +63,7 @@ fun FlashScreen(flashIt: FlashIt) {
         showRebootAction = showRebootAction,
         flashingStatus = flashingStatus,
         showJailbreakWarning = needJailbreakWarning && !flashingEnabled,
+        rebootLabelRes = if (softReboot) R.string.reboot_soft else R.string.reboot,
     )
     val actions = FlashScreenActions(
         onBack = dropUnlessResumed { navigator.pop() },
@@ -66,7 +71,7 @@ fun FlashScreen(flashIt: FlashIt) {
         onReboot = {
             scope.launch {
                 withContext(Dispatchers.IO) {
-                    reboot()
+                    reboot(if (softReboot) "soft_reboot" else "")
                 }
             }
         },

@@ -77,7 +77,11 @@
     <string name="failed_to_update_sepolicy">Не удалось обновить правила SELinux для %s</string>
     <string name="launch_app">Запустить</string>
     <string name="restart_app">Перезапустить</string>
-    <string name="require_kernel_version">Текущая версия KernelSU %1$d слишком низкая для правильной работы менеджера. Пожалуйста, обновите до версии %2$d или выше!</string>
+    <string name="home_lkm_update_available">Доступна новая версия встроенного LKM. Нажмите, чтобы обновить.</string>
+    <string name="home_lkm_custom">Пользовательский</string>
+    <string name="require_manager_version">Требуется обновить менеджер.</string>
+    <string name="require_kernel_version">Требуется обновить ядро. Нажмите, чтобы установить.</string>
+    <string name="require_kernel_version_gki">Требуется обновить ядро.</string>
     <string name="module_changelog">Список изменений</string>
     <string name="app_profile_template_import_success">Успешный импорт</string>
     <string name="app_profile_export_to_clipboard">Экспортировать в буфер обмена</string>
@@ -107,7 +111,12 @@
     <string name="direct_install">Прямая установка (Рекомендуется)</string>
     <string name="install_inactive_slot">Установка в неактивный слот (После OTA)</string>
     <string name="install_next">Далее</string>
-    <string name="select_file">Выбрать файл</string>
+    <string name="select_file">Выбрать файл и пропатчить</string>
+    <string name="download_file">Скачать файл и пропатчить</string>
+    <string name="download_dialog_title">Введите URL образа</string>
+    <string name="download_dialog_msg">Полный OTA-образ или заводской образ</string>
+    <string name="download_no_boot_partition">В образе не найдены разделы boot, init_boot или vendor_boot</string>
+    <string name="download_probe_failed">Не удалось проверить образ: %1$s</string>
     <string name="install_inactive_slot_warning">Ваше устройство будет **ПРИНУДИТЕЛЬНО** загружено в текущий неактивный слот после перезагрузки!
 \n Используйте эту опцию только после завершения OTA.
 \n Продолжить?</string>
