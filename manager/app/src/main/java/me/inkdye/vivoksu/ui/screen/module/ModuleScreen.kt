@@ -26,9 +26,11 @@ import kotlinx.coroutines.launch
 import me.inkdye.vivoksu.R
 import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
+import me.inkdye.vivoksu.ui.component.SearchStatus
 import me.inkdye.vivoksu.ui.navigation3.LocalNavigator
 import me.inkdye.vivoksu.ui.navigation3.Route
 import me.inkdye.vivoksu.ui.screen.flash.FlashIt
+import me.inkdye.vivoksu.ui.screen.modulerepo.downloadFailureMessage
 import me.inkdye.vivoksu.ui.util.download
 import me.inkdye.vivoksu.ui.util.module.Shortcut
 import me.inkdye.vivoksu.ui.viewmodel.ModuleViewModel
@@ -61,17 +63,21 @@ fun ModulePager(
 
     var hasActivated by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(isCurrentPage) {
-        if (isCurrentPage && !hasActivated) {
-            hasActivated = true
-            viewModel.refreshEnvironmentState()
-            viewModel.initializePreferences()
-            val state = viewModel.uiState.value
-            if (!state.hasLoaded && !state.isRefreshing) {
-                viewModel.fetchModuleList()
+        if (isCurrentPage) {
+            if (!hasActivated) {
+                hasActivated = true
+                viewModel.refreshEnvironmentState()
+                viewModel.initializePreferences()
+                val state = viewModel.uiState.value
+                if (!state.hasLoaded && !state.isRefreshing) {
+                    viewModel.fetchModuleList()
+                }
+                if (Build.VERSION.SDK_INT >= 33) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
-            if (Build.VERSION.SDK_INT >= 33) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
+        } else if (!rawUiState.searchStatus.isCollapsed()) {
+            viewModel.updateSearchStatus(rawUiState.searchStatus.copy(searchText = "", current = SearchStatus.Status.COLLAPSED))
         }
     }
 
@@ -116,6 +122,14 @@ fun ModulePager(
                 download(
                     url = request.downloadUrl,
                     fileName = request.fileName,
+                    // Registry releases are size + SHA-256 checked, kept app-private and
+                    // re-verified by the flash step; other updateJson sources are unchanged.
+                    expected = request.expected,
+                    onFailed = { failed ->
+                        viewModel.emitEffect(
+                            ModuleEffect.Toast(downloadFailureMessage(context, failed, request.fileName))
+                        )
+                    },
                     onDownloaded = { uri ->
                         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                             navigator.push(Route.Flash(FlashIt.FlashModules(listOf(uri))))

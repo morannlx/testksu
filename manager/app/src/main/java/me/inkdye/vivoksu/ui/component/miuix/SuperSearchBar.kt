@@ -16,6 +16,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +47,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
@@ -142,14 +145,14 @@ fun SearchStatus.SearchPager(
             .semantics { onClick { false } }
             .then(
                 if (!searchStatus.isCollapsed()) {
-                    Modifier.pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Final)
-                                event.changes.forEach { it.consume() }
-                            }
+                    Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures { }
                         }
-                    }
+                        .draggable(
+                            state = rememberDraggableState { },
+                            orientation = Orientation.Horizontal,
+                        )
                 } else Modifier
             )
     ) {

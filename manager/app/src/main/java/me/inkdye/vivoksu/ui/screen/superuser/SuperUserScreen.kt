@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import me.inkdye.vivoksu.ui.component.SearchStatus
 import me.inkdye.vivoksu.ui.LocalUiMode
 import me.inkdye.vivoksu.ui.UiMode
 import me.inkdye.vivoksu.ui.navigation3.Navigator
@@ -35,6 +36,8 @@ fun SuperUserPager(
                 viewModel.initializePreferences()
                 viewModel.loadAppList()
             }
+        } else if (!uiState.searchStatus.isCollapsed()) {
+            viewModel.updateSearchStatus(uiState.searchStatus.copy(searchText = "", current = SearchStatus.Status.COLLAPSED))
         }
     }
 
